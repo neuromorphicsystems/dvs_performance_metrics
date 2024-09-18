@@ -1,0 +1,7 @@
+cmaes>=0.8.2
+event_stream>=1.4.1
+h5py>=3.7.0
+matplotlib>=3.5.2
+numpy>=1.23.1
+pillow>=9.2.0
+scipy>=1.8.1

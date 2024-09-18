@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: dvs_warping_package
+Version: 0.0.2
+Summary: DVS Filters Benchmark for SSA
+Author: ICNS, Sami Arja
+Author-email: sami.arja@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+Requires-Dist: cmaes>=0.8.2
+Requires-Dist: event_stream>=1.4.1
+Requires-Dist: h5py>=3.7.0
+Requires-Dist: matplotlib>=3.5.2
+Requires-Dist: numpy>=1.23.1
+Requires-Dist: pillow>=9.2.0
+Requires-Dist: scipy>=1.8.1
+
+# dvs_performance_metrics
+Event-based Performance Metrics
+
+
+## -- Requirements -- 
+
+```sh
+conda create -n dvs_performance_metric python=3.8
+conda activate dvs_performance_metric
+pip install matplotlib
+pip install numpy
+pip install tqdm
+python3 -m pip install -e .
+'''
+
