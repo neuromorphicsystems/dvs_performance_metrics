@@ -17,6 +17,8 @@
 ```sh
 conda create -n dvs_performance_metric python=3.9
 conda activate dvs_performance_metric
+git clone https://github.com/neuromorphicsystems/dvs_performance_metrics.git
+cd dvs_performance_metrics
 python3 -m pip install -e .
 pip install tqdm
 pip install plotly
@@ -38,4 +40,6 @@ pip install astropy
 
 
 **PERFORMANCE_METRICS**: 
+
+**OUTPUT**
 
