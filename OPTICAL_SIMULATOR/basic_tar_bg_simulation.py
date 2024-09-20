@@ -40,8 +40,8 @@ def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetPar
     OpticParams['PSF'] = create_airy_disk(OpticParams['PSF_size'], None, InitParams['multiplier']) # Create Airy disk
 
     # Expand simulation to accommodate convolution edges
-    InitParams['full_width'] = SensorParams['width'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
-    InitParams['full_height'] = SensorParams['height'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
+    InitParams['full_width'] = int(SensorParams['width'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp'])
+    InitParams['full_height'] = int(SensorParams['height'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp'])
     InitParams['ind_to_trim'] = np.array([
         [int(np.floor((InitParams['full_height'] - SensorParams['height'])/2)),
          int(np.floor((InitParams['full_height'] + SensorParams['height'])/2))],
@@ -341,10 +341,10 @@ def get_clean_value(value, dtype):
             return out_val[0]
     elif dtype == bool:
         return clean_value.lower() in ['true', '1', 'yes']
-    # elif dtype == np.ndarray:
-    #     return np.array(eval(clean_value))  # Use eval to parse arrays
+    elif dtype == np.ndarray:
+        return np.array(eval(clean_value))  # Use eval to parse arrays
     else:
-        return clean_value.split(',')  # Keep as string for general cases
+        return clean_value  # Keep as string for general cases
 
 # Function to read the INI file and initialize parameters
 def read_ini_file(ini_file):
@@ -438,10 +438,11 @@ def read_ini_file(ini_file):
             }
 
     scanned_params = {}
-    for section_name, section_dict in [('InitParams', InitParams), ('SceneParams', SceneParams)]:
+    for section_name, section_dict in [('InitParams', InitParams), ('SceneParams', SceneParams), ('OpticParams', OpticParams), ('TargetParams', TargetParams), ('BgParams', BgParams), ('SensorBiases', SensorBiases), ('SensorParams', SensorParams)]:
         for param_name, value in section_dict.items():
             if isinstance(value, list) and len(value)>1:
-                scanned_params[f'{section_name}["'f'{param_name}''"]'] = value  # Track scanned parameters
+                # scanned_params[f'{section_name}["'f'{param_name}''"]'] = value  # Track scanned parameters
+                scanned_params[f'{section_name}.{param_name}'] = value  # Track scanned parameters
 
     
     return InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params
