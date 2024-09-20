@@ -3,6 +3,17 @@
 Created on Fri Sep 13 16:02:16 2024
 
 @author: 30067913
+
+This set of functions creates simulated intensity images of targets and
+backgrounds, with basic tracking heuristics. The aim is to create simple "video"
+frames for simulating event responce from an event camera.
+Simulation parameters are defined in a dedicated .INI file, read by the 
+read_ini_file function. TBD - genorate missing params as well
+A initialization function genorates parameters required for frames using the
+initialize_simulation_params function.
+Each frame is genorated by the frame_sim_functions function, where both the
+intensity frame (in photon flux units), and a binary "target" mask are output 
+of this function.
 """
 
 import numpy as np
@@ -12,27 +23,35 @@ from scipy.ndimage import zoom
 import configparser
 from astropy.convolution import AiryDisk2DKernel
 
-def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams):
+def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams):
     # Initialize optical parameters
-    OpticParams['IFOV'] = OpticParams['pixel_pitch'] / OpticParams['focal_length'] # imager IFOV [rad]
-    OpticParams['FOV_x'] = (InitParams['width'] * OpticParams['IFOV']) * 180 / np.pi # horizontal field of view [deg]
-    OpticParams['FOV_h'] = (InitParams['height'] * OpticParams['IFOV']) * 180 / np.pi # vertical field of view [deg]
+    OpticParams['IFOV'] = SensorParams['pixel_pitch'] / OpticParams['focal_length'] # imager IFOV [rad]
+    OpticParams['optical_gain'] = 4*OpticParams['Fnum']**2 # ratio between energy on optical aparture to energy on sensor
+    if InitParams['lux_flag']:
+        OpticParams['conversion_to_photon_flux'] = 1.12e16 # [photons/lumen] - used to convert from [lumen/m^2] on sensor plane to [photon/m^2/sec] per pixel (550e-9/(h*c)/251)
+    else:
+        h = 6.626068e-34
+        c = 299792458
+        OpticParams['conversion_to_photon_flux'] = 1e-6*InitParams['wavelength']/(h*c)
+        
+    OpticParams['FOV_x'] = (SensorParams['width'] * OpticParams['IFOV']) * 180 / np.pi # horizontal field of view [deg]
+    OpticParams['FOV_h'] = (SensorParams['height'] * OpticParams['IFOV']) * 180 / np.pi # vertical field of view [deg]
     OpticParams['dX'] = OpticParams['IFOV'] * SceneParams['t_distance'] # pixel/m
     OpticParams['PSF'] = create_airy_disk(OpticParams['PSF_size'], None, InitParams['multiplier']) # Create Airy disk
 
     # Expand simulation to accommodate convolution edges
-    InitParams['full_width'] = InitParams['width'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
-    InitParams['full_height'] = InitParams['height'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
+    InitParams['full_width'] = SensorParams['width'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
+    InitParams['full_height'] = SensorParams['height'] + OpticParams['PSF_size'] + 2 * SceneParams['Jitter_amp']
     InitParams['ind_to_trim'] = np.array([
-        [int(np.floor(OpticParams['PSF_size'] / 2 + SceneParams['Jitter_amp'] + 1)),
-         int(np.floor(InitParams['height'] - OpticParams['PSF_size'] / 2 - SceneParams['Jitter_amp']))],
-        [int(np.floor(OpticParams['PSF_size'] / 2 + SceneParams['Jitter_amp'] + 1)),
-         int(np.floor(InitParams['width'] - OpticParams['PSF_size'] / 2 - SceneParams['Jitter_amp']))]
+        [int(np.floor((InitParams['full_height'] - SensorParams['height'])/2)),
+         int(np.floor((InitParams['full_height'] + SensorParams['height'])/2))],
+        [int(np.floor((InitParams['full_width'] - SensorParams['width'])/2)),
+         int(np.floor((InitParams['full_width'] + SensorParams['width'])/2))]
     ])
 
     # Initialize target parameters
     TargetParams['kernel_radius'] = OpticParams['focal_length'] * TargetParams['target_radius'] / (
-            SceneParams['t_distance'] * OpticParams['pixel_pitch'])
+            SceneParams['t_distance'] * SensorParams['pixel_pitch'])
 
     # Create the target kernel based on target type
     if TargetParams['target_type'] == 'spot':
@@ -62,7 +81,7 @@ def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetPar
         TargetParams['init_intensity'] = TargetParams['target_brightness']
 
     # Initialize background parameters
-    BgParams['bg_spatial_freq'] = BgParams['S_freq'] * SceneParams['bg_distance'] * OpticParams['pixel_pitch'] / OpticParams['focal_length']
+    BgParams['bg_spatial_freq'] = BgParams['S_freq'] * SceneParams['bg_distance'] * SensorParams['pixel_pitch'] / OpticParams['focal_length']
     X, Y = np.meshgrid(
         np.arange(-InitParams['full_width'] / 2, InitParams['full_width'] / 2, (1 / InitParams['multiplier'])),
         np.arange(-InitParams['full_height'] / 2, InitParams['full_height'] / 2, (1 / InitParams['multiplier']))
@@ -103,7 +122,7 @@ def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetPar
         'imaging_los_speed': SceneParams['imaging_los_speed']  # Initial imaging line-of-sight angular velocity
     }
 
-    return Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams
+    return Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams
 
 def create_airy_disk(PSF_size, MTF, multiplier):
     # Create Airy disk of the optical blurring
@@ -120,7 +139,7 @@ def create_airy_disk(PSF_size, MTF, multiplier):
     return airydisk_2D_kernel
 
 
-def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams):
+def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams):
     
     # Extract parameters for readability
     width = InitParams['full_width']
@@ -131,32 +150,62 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
     #lux_flag = InitParams['lux_flag']
     #wavelength = InitParams['wavelength']
     
-    BG_const = SceneParams['BG_const']
     t_distance = SceneParams['t_distance']
     t_velocity = SceneParams['t_velocity']
     
     #PSF_size = OpticParams['PSF_size']
     IFOV = OpticParams['IFOV']
     
+    # conversion from irradiance to photon flux units
+    BG_const = SceneParams['BG_const'] * OpticParams['optical_gain'] * OpticParams['conversion_to_photon_flux']
+    BG_brightness = BgParams['BG_brightness'] * OpticParams['optical_gain'] * OpticParams['conversion_to_photon_flux']
+    target_brightness = TargetParams['target_brightness'] * OpticParams['optical_gain'] * OpticParams['conversion_to_photon_flux']
+    
     # Base frame (constant background illumination)
     BG_frame = np.ones((int(height * multiplier), int(width * multiplier))) * BG_const
-    
+   
     # Correct LOS for tracking
     target_angular_velocity = t_velocity / t_distance
     Dynamics['t_azimuth'] += dt * target_angular_velocity
     Dynamics['i_azimuth'] += dt * Dynamics['imaging_los_speed']
+    # add elevation updating?
     
-    # simple tracking
-    if target_angular_velocity > Dynamics['imaging_los_speed']:
-        Dynamics['imaging_los_speed'] += dt * SceneParams['imaging_los_acc']
-    elif target_angular_velocity < Dynamics['imaging_los_speed']:
-        Dynamics['imaging_los_speed'] -= dt * SceneParams['imaging_los_acc']
     
+    angular_diff = Dynamics['t_azimuth'] - Dynamics['i_azimuth']
+    # tracking according to method
+    if SceneParams['tracking_mode'] == 'chase': #(1) chase the target
+        if target_angular_velocity > (Dynamics['imaging_los_speed']+IFOV/dt):
+            Dynamics['imaging_los_speed'] += dt * SceneParams['imaging_los_acc']
+        elif target_angular_velocity < (Dynamics['imaging_los_speed']-IFOV/dt):
+            Dynamics['imaging_los_speed'] -= dt * SceneParams['imaging_los_acc']
+        else:
+            Dynamics['imaging_los_speed'] = target_angular_velocity
+            
+    elif SceneParams['tracking_mode'] == 'perfect': #(2) always aligned with taregt
+        Dynamics['imaging_los_speed'] = 0
+        Dynamics['i_azimuth'] = Dynamics['t_azimuth']
+        Dynamics['t_elevation'] = Dynamics['i_elevation']
+        
+    elif SceneParams['tracking_mode'] == 'leaps': #(3) periodically jump toward the target
+        if np.mod(Dynamics['t']/SceneParams['leapTime'],1)>(1-SceneParams['leapDuty']):
+            if abs(angular_diff) <IFOV:
+                Dynamics['imaging_los_speed'] = target_angular_velocity
+            else:
+                ratio = min(1,abs(angular_diff)/dt)
+                Dynamics['imaging_los_speed'] += np.sign(angular_diff)*dt*SceneParams['imaging_los_acc']*ratio
+        elif np.mod(Dynamics['t']/SceneParams['leapTime'],1)<SceneParams['leapDuty']: # stop tracking
+            if Dynamics['imaging_los_speed']*dt<2*IFOV:
+                Dynamics['imaging_los_speed'] = 0
+            else: # debug this
+                Dynamics['imaging_los_speed'] = np.sign(Dynamics['imaging_los_speed']) * abs(Dynamics['imaging_los_speed'] - dt*SceneParams['imaging_los_acc'])
+        else:
+            Dynamics['imaging_los_speed'] = 0
+ 
     # Background pixel shift
     bg_pixel_shift_x = Dynamics['i_azimuth'] / OpticParams['IFOV']
     bg_pixel_shift_y = Dynamics['i_elevation'] / OpticParams['IFOV']
     # Add background feature
-    BG_frame += BgParams['BG_brightness'] * make_BG_frame(width, height, multiplier, BgParams, [bg_pixel_shift_x, bg_pixel_shift_y])
+    BG_frame += BG_brightness * make_BG_frame(width, height, multiplier, BgParams, [bg_pixel_shift_x, bg_pixel_shift_y])
     
     # Calculate target location
     target_pix_loc = [
@@ -171,12 +220,12 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
         target_frame = np.zeros_like(BG_frame)
     
     # Add BG and target to a single layer
+    target_frame_norm = target_frame / np.max(target_frame)
     if np.sum(target_frame) and obstruct:
-        target_frame_norm = target_frame / np.max(target_frame)
         target_frame_norm_2 = target_frame_norm ** 2
-        out_frame = BG_frame * (1 - target_frame_norm_2) + TargetParams['target_brightness'] * target_frame * target_frame_norm_2
+        out_frame = BG_frame * (1 - target_frame_norm_2) + target_brightness * target_frame * target_frame_norm_2
     else:
-        out_frame = BG_frame + TargetParams['target_brightness'] * target_frame
+        out_frame = BG_frame + target_brightness * target_frame
     
     # Add optical blurring and LOS jitter
     if SceneParams['Jitter_amp'] and SceneParams['Jitter_speed']:
@@ -211,12 +260,20 @@ def make_BG_frame(width, height, multiplier, BgParams, pixel_shift):
         y = BgParams['Y'] + pixel_shift[1]
         return (np.cos(2 * np.pi * BgParams['bg_spatial_freq'] * (np.cos(np.radians(BgParams['S_dir'])) * x + np.sin(np.radians(BgParams['S_dir'])) * y) / 2) + 1) / 2
     elif BgParams['BG_type'] == 'natural':
-        X_struct = 1j * 2 * np.pi * np.einsum('k,ij->ijk' ,BgParams['bg_spatial_freq'] * BgParams['fn_fac'] * BgParams['amp_rx'] , (BgParams['X'] + pixel_shift[0]))
-        Y_struct = 1j * 2 * np.pi * np.einsum('k,ij->ijk' ,BgParams['fn_fac'] * BgParams['amp_ry'] * BgParams['bg_spatial_freq'] , (BgParams['Y'] + pixel_shift[1]))        
+        # X_struct = 1j * 2 * np.pi * np.einsum('k,ij->ijk' ,BgParams['bg_spatial_freq'] * BgParams['fn_fac'] * BgParams['amp_rx'] , (BgParams['X'] + pixel_shift[0]))
+        # Y_struct = 1j * 2 * np.pi * np.einsum('k,ij->ijk' ,BgParams['fn_fac'] * BgParams['amp_ry'] * BgParams['bg_spatial_freq'] , (BgParams['Y'] + pixel_shift[1]))        
         # X_struct = 1j * 2 * np.pi * (BgParams['bg_spatial_freq'] * BgParams['fn_fac'] * BgParams['amp_rx'] * ([BgParams['X'] + pixel_shift[0],np.newaxis]))
         # Y_struct = 1j * 2 * np.pi * (BgParams['fn_fac'] * BgParams['amp_ry'] * BgParams['bg_spatial_freq'] * ([BgParams['Y'] + pixel_shift[1],np.newaxis]))
-        return 2 * BgParams['Norm_f'] * np.sum((np.real(np.exp(X_struct + Y_struct)) + 1) / 2, axis=2)
-
+        # return 2 * BgParams['Norm_f'] * np.sum((np.real(np.exp(X_struct + Y_struct)) + 1) / 2, axis=2)
+        frame_out = np.zeros([int(height),int(width)],float)
+        for k in range(len(BgParams['fn_fac'])):
+            X_comp = BgParams['bg_spatial_freq'] * BgParams['fn_fac'][k] * BgParams['amp_rx'][k] * (BgParams['X'] + pixel_shift[0])
+            Y_comp = BgParams['bg_spatial_freq'] * BgParams['fn_fac'][k] * BgParams['amp_ry'][k] * (BgParams['Y'] + pixel_shift[1])
+            total_phase = 2*np.pi*(X_comp + Y_comp)
+            frame_out += BgParams['Norm_f'] * (np.cos(total_phase) + 1)
+            
+        return frame_out 
+    
 
 def make_target_frame(t, target_loc, width, height, multiplier, TargetParams):
     frame_ext = np.zeros((int(multiplier * height), int(multiplier * width)))
@@ -271,15 +328,23 @@ def get_clean_value(value, dtype):
 
     # Convert to the appropriate type
     if dtype == int:
-        return int(clean_value)
+        out_val = list(map(int,clean_value.split(',')))
+        if len(out_val)>1:
+            return out_val
+        else:
+            return out_val[0]
     elif dtype == float:
-        return float(clean_value)
+        out_val = list(map(float,clean_value.split(',')))
+        if len(out_val)>1:
+            return out_val
+        else:
+            return out_val[0]
     elif dtype == bool:
         return clean_value.lower() in ['true', '1', 'yes']
-    elif dtype == np.ndarray:
-        return np.array(eval(clean_value))  # Use eval to parse arrays
+    # elif dtype == np.ndarray:
+    #     return np.array(eval(clean_value))  # Use eval to parse arrays
     else:
-        return clean_value  # Keep as string for general cases
+        return clean_value.split(',')  # Keep as string for general cases
 
 # Function to read the INI file and initialize parameters
 def read_ini_file(ini_file):
@@ -288,14 +353,14 @@ def read_ini_file(ini_file):
 
     # Initialize dictionaries for each parameter group
     InitParams = {
-        'width': get_clean_value(config['InitParams']['width'], int),
-        'height': get_clean_value(config['InitParams']['height'], int),
+        'sim_name': get_clean_value(config['InitParams']['sim_name'], str),
         't_end': get_clean_value(config['InitParams']['t_end'], float),
         'dt': get_clean_value(config['InitParams']['dt'], float),
         'obstruct': get_clean_value(config['InitParams']['obstruct'], bool),
         'multiplier': get_clean_value(config['InitParams']['multiplier'], int),
         'lux_flag': get_clean_value(config['InitParams']['lux_flag'], bool),
         'wavelength': get_clean_value(config['InitParams']['wavelength'], float),
+        'sensor_model': get_clean_value(config['InitParams']['sensor_model'], str),
     }
 
     SceneParams = {
@@ -310,15 +375,16 @@ def read_ini_file(ini_file):
         'imaging_los_speed': get_clean_value(config['SceneParams']['imaging_los_speed'], float),
         'imaging_los_acc': get_clean_value(config['SceneParams']['imaging_los_acc'], float),
         'Jitter_amp': get_clean_value(config['SceneParams']['Jitter_amp'], float),
-        'Jitter_speed': get_clean_value(config['SceneParams']['Jitter_speed'], float)
+        'Jitter_speed': get_clean_value(config['SceneParams']['Jitter_speed'], float),
+        'tracking_mode': get_clean_value(config['SceneParams']['tracking_mode'], str),
+        'leapTime': get_clean_value(config['SceneParams']['leapTime'], float),
+        'leapDuty': get_clean_value(config['SceneParams']['leapDuty'], float)       
     }
 
     OpticParams = {
         'focal_length': get_clean_value(config['OpticParams']['focal_length'], float),
-        'pixel_pitch': get_clean_value(config['OpticParams']['pixel_pitch'], float),
+        'Fnum': get_clean_value(config['OpticParams']['Fnum'], float),
         'PSF_size': get_clean_value(config['OpticParams']['PSF_size'], float),
-        'MTF_f': get_clean_value(config['OpticParams']['MTF_f'], np.ndarray),
-        'MTF_v': get_clean_value(config['OpticParams']['MTF_v'], np.ndarray),
     }
 
     TargetParams = {
@@ -338,5 +404,44 @@ def read_ini_file(ini_file):
         'S_freq': get_clean_value(config['BgParams']['S_freq'], float),
         'S_dir': get_clean_value(config['BgParams']['S_dir'], float),
     }
+    
+    SensorBiases = {
+        'diff_on': get_clean_value(config['SensorBiases']['diff_on'], float),
+        'diff_off': get_clean_value(config['SensorBiases']['diff_off'], float),
+        'refr': get_clean_value(config['SensorBiases']['refr'], float),
+    }
+    
+    if InitParams["sensor_model"]=="Gen4":
+        config2 = configparser.ConfigParser()
+        config2.read("config/Gen4_config.ini")
+        SensorParams = {
+            'width': get_clean_value(config2['SensorParams']['width'], int),
+            'height': get_clean_value(config2['SensorParams']['height'], int),
+            'pixel_pitch': get_clean_value(config2['SensorParams']['pixel_pitch'], float),
+            'fill_factor': get_clean_value(config2['SensorParams']['fill_factor'], float),
+            'tau_sf': get_clean_value(config2['SensorParams']['tau_sf'], float),
+            'tau_dark': get_clean_value(config2['SensorParams']['tau_dark'], float),
+            'QE': get_clean_value(config2['SensorParams']['QE'], float),
+            'threshold_noise': get_clean_value(config2['SensorParams']['threshold_noise'], float),
+            'latency_jitter': get_clean_value(config2['SensorParams']['latency_jitter'], float),
+            }
+    else:
+        SensorParams = {
+            'width': get_clean_value(config['ManualSensorParams']['width'], int),
+            'height': get_clean_value(config['ManualSensorParams']['height'], int),
+            'pixel_pitch': get_clean_value(config['ManualSensorParams']['pixel_pitch'], float),
+            'fill_factor': get_clean_value(config['ManualSensorParams']['fill_factor'], float),
+            'tau_sf': get_clean_value(config['ManualSensorParams']['tau_sf'], float),
+            'tau_dark': get_clean_value(config['ManualSensorParams']['tau_dark'], float),
+            'QE': get_clean_value(config['ManualSensorParams']['QE'], float),
+            'threshold_noise': get_clean_value(config['ManualSensorParams']['threshold_noise'], float),
+            }
 
-    return InitParams, SceneParams, OpticParams, TargetParams, BgParams
+    scanned_params = {}
+    for section_name, section_dict in [('InitParams', InitParams), ('SceneParams', SceneParams)]:
+        for param_name, value in section_dict.items():
+            if isinstance(value, list) and len(value)>1:
+                scanned_params[f'{section_name}["'f'{param_name}''"]'] = value  # Track scanned parameters
+
+    
+    return InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params

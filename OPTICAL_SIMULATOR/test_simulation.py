@@ -23,6 +23,8 @@ import os
 import matplotlib.pyplot as plt
 import scipy.io as sio
 
+
+# All these need to go - all inputs are now from the config file
 th_pos = 0.3        # ON threshold = 50% (ln(1.5) = 0.4)
 th_neg = 0.4        # OFF threshold = 50%
 th_noise = 0.01     # standard deviation of threshold noise
@@ -42,14 +44,16 @@ F_max            = 10e6 * fmin
 def run_simulation():
     # Read the configuration file
     ini_file = 'config/simulation_config_1.ini'
-    InitParams, SceneParams, OpticParams, TargetParams, BgParams = read_ini_file(ini_file)
+    InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = read_ini_file(ini_file)
 
+    
     # Initialize simulation data function
-    Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams)
+    Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
+    frame_size = [SensorParams['height'], SensorParams['width']]
     t = Dynamics['t']             # Start time (from initialized dynamics)
     t_end = InitParams['t_end']   # End time (from the INI file)    
 
-    initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams)
+    initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
 
     # # Create the initial frame and setup simulation plots
     # plt.ion()    
@@ -59,14 +63,23 @@ def run_simulation():
     # plt.colorbar(imgg, ax=ax)#, label='Intensity')
     
     im = initial_frame
-    # Initialize event simulator model
+    # Initialize event simulator model   -    <<<<>>>> this needs updating according to our discussion - see suggestion below <<<<>>>>
     dvs = DvsSensor("MySensor")
-    dvs.initCamera(im.shape[1], im.shape[0],
-                    lat=lat, jit = jit, ref = ref,
-                    tau = tau, th_pos = th_pos, th_neg = th_neg,
+    dvs.initCamera(frame_size[1], frame_size[0],
+                    lat=lat, jit = jit, ref = SensorBiases['refr'],
+                    tau = tau, th_pos = SensorBiases['diff_on'], th_neg = SensorBiases['diff_off'],
                     th_noise = th_noise, bgnp=bgnp, bgnn=bgnn,
                     lcurr=leakeage_current,fmax=F_max)
-    
+
+    # suggested input to init dvs cam:
+    # dvs = DvsSensor("MySensor")
+    # dvs.initCamera(frame_size[1], frame_size[0],
+    #                 pixel_pitch = SensorParams['pixel_pitch'], QE = SensorParams['QE'], ff = SensorParams['fill_factor'],
+    #                 tau_sf = SensorParams['tau_sf'], tau_dark = SensorParams['tau_dark'],
+    #                 th_noise = SensorParams['threshold_noise'], jit = SensorParams['latency_jitter'], 
+    #                 ref = SensorBiases['refr'], th_pos = SensorBiases['diff_on'], th_neg = SensorBiases['diff_off'],
+    #                 bgnp=bgnp, bgnn=bgnn) # <- these last two might go away one day... but we will continue to use them for now
+                    
     # To use the measured noise distributions, uncomment the following line
     dvs.init_bgn_hist("EVENT_SIMULATOR/data/noise_pos_161lux.npy", "EVENT_SIMULATOR/data/noise_neg_161lux.npy")
     # Set as the initial condition of the sensor
@@ -74,20 +87,20 @@ def run_simulation():
     # Create the event buffer
     ev_full = EventBuffer(1)
     # Create the arbiter - optional, pick from one below
-    ea = SynchronousArbiter(0.1, time, im.shape[0])  # DVS346-like arbiter
+    ea = SynchronousArbiter(0.1, t, im.shape[0])  # DVS346-like arbiter
     # Create the display
     render_timesurface = 1
     ed = EventDisplay("Events",
-                    im.shape[1],
-                    im.shape[0],
-                    dt,
+                    frame_size[1],
+                    frame_size[0],
+                    InitParams['dt'],
                     render_timesurface)
 
     # Run the simulation loop until t exceeds t_end
     while t < t_end:
         
         # Create the camera pixel frame and target mask
-        pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams)
+        pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         t = Dynamics['t']
         
         # Run event simulator using the current image frame
