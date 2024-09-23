@@ -29,9 +29,11 @@ pip install opencv-python
 pip install scikit-learn
 pip install pillow
 pip install astropy
+pip install configparser
 ```
 
-# Folder structure
+# Content of each folder
+
 
 **OPTICAL_SIMULATOR**: 
 
@@ -41,5 +43,12 @@ pip install astropy
 
 **PERFORMANCE_METRICS**: 
 
-**OUTPUT**
 
+**OUTPUT**:
+
+
+**dvs_warping_package and dvs_warping_package_extension**: Python and C++ packages to enable denoising and event warping
+
+To pull content from another branch:
+
+`git checkout origin/<brance-name> -- <folder-name/file-name>`
