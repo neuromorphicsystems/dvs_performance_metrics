@@ -66,5 +66,8 @@ class EventDisplay():
             cv2.imshow(self.name, self.im)
             cv2.waitKey(10)
 
+    def get_image(self):
+        """ Returns the current image for display using other visualization tools """
+        return self.im
 
 
