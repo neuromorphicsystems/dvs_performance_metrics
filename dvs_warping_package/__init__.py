@@ -57,6 +57,8 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from math import exp, isfinite
 from scipy.linalg import expm, lstsq
 from collections import deque
+import configparser
+
 # # from torchvision.transforms.functional import gaussian_blur
 # # import cache
 # # import stars
@@ -124,6 +126,41 @@ def print_message(message, color='default', style='normal'):
     print(f"{styles[style]}{colors[color]}{message}{styles['default']}")
 
 
+
+def calculate_time_constants(img, quantum_efficiency, q, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
+    """
+    Computes the time constants for photoreceptors based on the input image, quantum efficiency, 
+    and several physical parameters.
+    
+    Parameters:
+    - img: The input image with the photon flux density (photon/m^2.s)
+    - quantum_efficiency: Quantum efficiency constant.
+    - q: Elementary charge constant.
+    - pixel_pitch: Size of a pixel in meters.
+    - fill_factor: Fill factor of the photoreceptors.
+    - Idr: Dark current (2D array matching the input img).
+    - tau_dark: Time constant in the absence of light.
+    - tau_sf: Time constant of the source follower.
+
+    Returns:
+    - tau: Per-pixel time constants
+    """
+    
+    # Step 0: Create a 2D array of the dark photocurrent
+    Idr = numpy.full(img.shape, Idr)
+
+    # Step 1: Compute Photocurrent I
+    I = quantum_efficiency * q * pixel_pitch**2 * img * fill_factor
+
+    # Step 2: Compute Photoreceptor Time Constant tau_p
+    denominator = numpy.maximum(I + Idr, 1e-20)  # Prevent division by zero
+    tau_pr = tau_dark * (Idr / denominator)
+
+    # Step 3: If tau_sf > tau_p, use tau_p; else, use tau_sf
+    tau = numpy.where(tau_sf > tau_pr, tau_pr, tau_sf)
+    
+    return tau
+    
 def read_es_file(
     path: typing.Union[pathlib.Path, str]
 ) -> tuple[int, int, numpy.ndarray]:

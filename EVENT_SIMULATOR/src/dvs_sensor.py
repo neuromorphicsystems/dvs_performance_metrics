@@ -1,5 +1,6 @@
 # Damien JOUBERT 17-01-2020 - Updated by AvS 23-02-2024
 import numpy as np
+import dvs_warping_package
 from event_buffer import EventBuffer
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -201,21 +202,30 @@ class DvsSensor:
         
         
         ################################ FINAL TIME CONSTANT CALCULATION ###################################
-        self.Idr = np.full(img.shape, self.Idr)
-        # Step 1: Compute Photocurrent I
-        I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor  # I has the same shape as img
-        # Step 2: Compute Photoreceptor Time Constant tau_p
-        epsilon = 1e-20  # Small constant to prevent division by zero
-        denominator = I + self.Idr
-        denominator = np.maximum(denominator, epsilon)
-        self.tau_p = self.tau_dark * (self.Idr / denominator)
-        # Step 3: Assign Time Constants Based on the Condition
-        # Create tau_sf_array with the same shape as tau_p
-        tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
-        # Step 4: Use np.where to assign time constants
-        # If tau_sf > tau_p, use tau_p; else, use tau_sf
-        self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
-        self.tau_p = self.tau
+        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
+                                                                  self.quantum_efficiency, 
+                                                                  self.q, 
+                                                                  self.pixel_pitch, 
+                                                                  self.fill_factor, 
+                                                                  self.Idr, 
+                                                                  self.tau_dark, 
+                                                                  self.tau_sf)
+        
+        # self.Idr = np.full(img.shape, self.Idr) # an array of the dark current
+        # # Step 1: Compute Photocurrent I
+        # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor  # I has the same shape as img
+        # # Step 2: Compute Photoreceptor Time Constant tau_p
+        # epsilon = 1e-20  # Small constant to prevent division by zero
+        # denominator = I + self.Idr
+        # denominator = np.maximum(denominator, epsilon)
+        # self.tau_p = self.tau_dark * (self.Idr / denominator)
+        # # Step 3: Assign Time Constants Based on the Condition
+        # # Create tau_sf_array with the same shape as tau_p
+        # tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
+        # # Step 4: Use np.where to assign time constants
+        # # If tau_sf > tau_p, use tau_p; else, use tau_sf
+        # self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
+        # self.tau_p = self.tau
         ###################################################################################
         
         self.time_px[:, :] = 0
@@ -361,21 +371,30 @@ class DvsSensor:
         
         
         ################################ FINAL TIME CONSTANT CALCULATION ###################################
-        self.Idr = np.full(img.shape, self.Idr)
-        # Step 1: Compute Photocurrent I
-        I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor # I has the same shape as img
-        # Step 2: Compute Photoreceptor Time Constant tau_p
-        epsilon = 1e-20  # Small constant to prevent division by zero
-        denominator = I + self.Idr
-        denominator = np.maximum(denominator, epsilon)
-        self.tau_p = self.tau_dark * (self.Idr / denominator)
-        # Step 3: Assign Time Constants Based on the Condition
-        # Create tau_sf_array with the same shape as tau_p
-        tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
-        # Step 4: Use np.where to assign time constants
-        # If tau_sf > tau_p, use tau_p; else, use tau_sf
-        self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
-        self.tau_p = self.tau
+        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
+                                                                  self.quantum_efficiency, 
+                                                                  self.q, 
+                                                                  self.pixel_pitch, 
+                                                                  self.fill_factor, 
+                                                                  self.Idr, 
+                                                                  self.tau_dark, 
+                                                                  self.tau_sf)
+        
+        # self.Idr = np.full(img.shape, self.Idr)
+        # # Step 1: Compute Photocurrent I
+        # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor # I has the same shape as img
+        # # Step 2: Compute Photoreceptor Time Constant tau_p
+        # epsilon = 1e-20  # Small constant to prevent division by zero
+        # denominator = I + self.Idr
+        # denominator = np.maximum(denominator, epsilon)
+        # self.tau_p = self.tau_dark * (self.Idr / denominator)
+        # # Step 3: Assign Time Constants Based on the Condition
+        # # Create tau_sf_array with the same shape as tau_p
+        # tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
+        # # Step 4: Use np.where to assign time constants
+        # # If tau_sf > tau_p, use tau_p; else, use tau_sf
+        # self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
+        # self.tau_p = self.tau
         ###################################################################################
 
         # Update refractory and reset pixels
