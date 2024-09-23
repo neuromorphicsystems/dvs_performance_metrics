@@ -41,8 +41,5 @@ pip install astropy
 
 **PERFORMANCE_METRICS**: 
 
+**OUTPUT**
 
-**OUTPUT**: 
-
-
-**dvs_warping_package**: A python/C++ package for motion compensation and event-based denoising
