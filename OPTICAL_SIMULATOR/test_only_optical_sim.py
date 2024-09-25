@@ -17,6 +17,7 @@ import os
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import dvs_warping_package
+from scipy.io import savemat
 
 sys.path.append("EVENT_SIMULATOR/src")
 from event_buffer import EventBuffer
@@ -35,7 +36,11 @@ def run_simulation():
     plt.ion()    
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
 
+    mask_frames = []
+    # Create the event buffer and arbiter
+    ev_full = EventBuffer(1)
     
+
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
         scanned_param_values = list(scanned_params.values())
@@ -70,7 +75,9 @@ def run_simulation():
         
         # Create the initial frame and setup simulation plots
         if param_value_index == 0:
-            imgg1 = ax1.imshow(initial_frame, cmap='gray', animated=True)
+            imgg1 = ax1.imshow(initial_frame, 
+                               cmap='gray', 
+                               animated=True)
             ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
             plt.colorbar(imgg1, ax=ax1)
 
@@ -97,11 +104,8 @@ def run_simulation():
                        q=SensorParams['q'])
         
         dvs.init_image(im)
-
-        # Create the event buffer and arbiter
-        ev_full = EventBuffer(1)
         ea = SynchronousArbiter(0.1, SensorParams['time'], im.shape[0])
-
+        
         # Create the display for events
         render_timesurface = 1
         ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
@@ -117,6 +121,7 @@ def run_simulation():
                                                                            BgParams, 
                                                                            SensorBiases, 
                                                                            SensorParams)
+            mask_frames.append(target_frame_norm)
             t = Dynamics['t']
             
             # Run event simulator using the current image frame
@@ -124,6 +129,7 @@ def run_simulation():
 
             # Update EventDisplay with events
             ed.update(ev, SensorParams['dt'])
+            ev_full.increase_ev(ev)
             
             # Update initial frames to fit the new frames
             initial_frame = pixel_frame
@@ -141,9 +147,19 @@ def run_simulation():
             # Update the figures
             plt.pause(0.001)
 
+        ev_full.write('OUTPUT/events/ev_{}_{}_{}_{}_{}.dat'.format(SensorParams['lat'], 
+                                                               SensorParams['jit'], 
+                                                               SensorBiases['diff_on'], 
+                                                               SensorBiases['diff_off'], 
+                                                               SensorParams['threshold_noise']))
+        target_frame_norm_3d = np.array(mask_frames)
+
+    savemat('OUTPUT/masks/target_frame_mask.mat', {'target_frame_mask': target_frame_norm_3d})
+
     plt.ioff()
     plt.show()
-        
+    
+    # np.save("OUTPUT/frame_timestamp.npy",frame_timestamp)
 
 if __name__ == '__main__':
     run_simulation()
