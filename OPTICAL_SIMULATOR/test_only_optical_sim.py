@@ -46,8 +46,8 @@ def run_simulation():
         scanned_param_name = list(scanned_params.keys())  # Names of parameters
         scanned_param_values = list(scanned_params.values())  # Corresponding values (as lists)
     else:
-        scanned_param_name = []
-        scanned_param_values =[0]
+        scanned_param_name = list(['.'])
+        scanned_param_values =[[0]]
 
     for param_value_index in range(len(scanned_param_values[0])):
         section, param = scanned_param_name[0].split('.')
