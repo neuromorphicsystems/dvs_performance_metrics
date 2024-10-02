@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from basic_tar_bg_simulation import frame_sim_functions,initialize_simulation_params,read_ini_file
 import cv2
 import sys
+from PIL import Image, ImageEnhance, ImageOps
 
 from tqdm import tqdm
 import os
@@ -18,6 +19,7 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import dvs_warping_package
 from scipy.io import savemat
+import scipy.io
 
 sys.path.append("EVENT_SIMULATOR/src")
 from event_buffer import EventBuffer
@@ -28,6 +30,7 @@ from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
+psf_thr = 10
 
 def run_simulation():    
     ini_file = 'config/simulation_config_1.ini'
@@ -36,11 +39,11 @@ def run_simulation():
     plt.ion()    
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
 
-    mask_frames = []
+    simulation_data = []
+
     # Create the event buffer and arbiter
     ev_full = EventBuffer(1)
     
-
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
         scanned_param_values = list(scanned_params.values())
@@ -72,6 +75,24 @@ def run_simulation():
 
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         frame_size = [SensorParams['height'], SensorParams['width']]
+        
+        # psf_peak = np.max(initial_target_frame)
+        # threshold_value = psf_peak / psf_thr  # default value is 2.5
+        # binary_target_mask = initial_target_frame > threshold_value
+        # current_data = {
+        #         't': Dynamics['t'],
+        #         'i_azimuth': Dynamics['i_azimuth'],
+        #         'i_elevation': Dynamics['i_elevation'],
+        #         't_azimuth': Dynamics['t_azimuth'],
+        #         't_elevation': Dynamics['t_elevation'],
+        #         'imaging_los_speed': Dynamics['imaging_los_speed'],
+        #         'binary_target_mask': binary_target_mask,
+        #         'x': 1,
+        #         'y': 1,
+        #         'p': 1,
+        #         'ts': 1
+        #     }
+        # simulation_data.append(current_data)
         
         # Create the initial frame and setup simulation plots
         if param_value_index == 0:
@@ -112,21 +133,102 @@ def run_simulation():
 
         # Simulation loop
         while t < t_end:
+            simulation_data.append({'t': t})
             # Create the camera pixel frame and target mask
-            pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics, 
-                                                                           InitParams, 
-                                                                           SceneParams, 
-                                                                           OpticParams, 
-                                                                           TargetParams, 
-                                                                           BgParams, 
-                                                                           SensorBiases, 
+            pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics,
+                                                                           InitParams,
+                                                                           SceneParams,
+                                                                           OpticParams,
+                                                                           TargetParams,
+                                                                           BgParams,
+                                                                           SensorBiases,
                                                                            SensorParams)
-            mask_frames.append(target_frame_norm)
+            
+            binary_frame = dvs_warping_package.binarize_target_frame(target_frame_norm, 
+                                                                     OpticParams['PSF_size'],
+                                                                     InitParams['multiplier'],
+                                                                     extra_percentage=1000)
+            
+            # psf_peak = np.max(target_frame_norm)
+            # threshold_value = psf_peak / psf_thr  # default value is 2.5
+            # binary_target_mask = target_frame_norm > threshold_value
+            
+            binary_target_mask = binary_frame
+            
             t = Dynamics['t']
             
             # Run event simulator using the current image frame
             ev = dvs.update(pixel_frame, SensorParams['dt'])
+            
+            # per event labelling based on the binary mask
+            l = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
+            
+            # Store the pixel displacement in the current data
+            current_data = {
+                'i_azimuth': Dynamics['i_azimuth'],
+                'i_elevation': Dynamics['i_elevation'],
+                't_azimuth': Dynamics['t_azimuth'],
+                't_elevation': Dynamics['t_elevation'],
+                'imaging_los_speed': Dynamics['imaging_los_speed'],
+                'binary_target_mask': binary_target_mask,
+                'dx/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
+                'dy/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+                'x': ev.x,
+                'y': ev.y,
+                'p': ev.p,
+                'ts': ev.ts,
+                'l': l
+            }
+            simulation_data[-1].update(current_data)
+            
+            eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
+                                                 ('x', 'f8'),
+                                                 ('y', 'f8'),
+                                                 ('p', 'f8')])
+            
+            eventsT['t'] = ev.ts.astype(np.float64)
+            eventsT['x'] = ev.x.astype(np.float64)
+            eventsT['y'] = ev.y.astype(np.float64)
+            eventsT['p'] = ev.p.astype(np.float64)
+            
+            vx_velocity = np.zeros((len(eventsT["x"]), 1)) + 0.0 / 1e6
+            vy_velocity = np.zeros((len(eventsT["y"]), 1)) + 0.0 / 1e6
+            
+            cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
+                                                                    binary_target_mask.shape[0]),
+                                                                    eventsT,
+                                                                    (0,0))
+            warped_image_segmentation_raw = dvs_warping_package.render(cumulative_map_object,
+                                                                       colormap_name="magma",
+                                                                       gamma=lambda image: image ** (1 / 3))
 
+            # warped_image_segmentation_raw    = dvs_warping_package.rgb_render(cumulative_map_object, seg_label)
+            # warped_image_segmentation_raw.show()
+            
+            # combined_image = dvs_warping_package.overlay_masks(warped_image_segmentation_raw, binary_target_mask)
+            
+            combined_image, labeled_events = dvs_warping_package.overlay_and_label_events(warped_image_segmentation_raw,
+                                                                                          binary_target_mask,
+                                                                                          ev.x,
+                                                                                          ev.y,
+                                                                                          y_offset=0)
+
+            cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                binary_target_mask.shape[0]),
+                                                                                                eventsT,
+                                                                                                labeled_events.flatten().astype(np.int32),
+                                                                                                (vx_velocity.T,vy_velocity.T))
+            warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+            combined_image.save(f"OUTPUT/combined_image_{t:.3f}.png")
+            warped_image_segmentation_rgb_zero.save(f"OUTPUT/warped_image_segmentation_rgb_zero_{t:.3f}.png")
+            warped_image_segmentation_raw.save(f"OUTPUT/warped_image_segmentation_raw_{t:.3f}.png")
+            
+            
+    
+            # combined_image.save(f"OUTPUT/0_img_{t:.3f}.png")
+            # warped_image_segmentation_raw.save(f"OUTPUT/1_img_{t:.3f}.png")
+            
+            
             # Update EventDisplay with events
             ed.update(ev, SensorParams['dt'])
             ev_full.increase_ev(ev)
@@ -152,14 +254,12 @@ def run_simulation():
                                                                SensorBiases['diff_on'], 
                                                                SensorBiases['diff_off'], 
                                                                SensorParams['threshold_noise']))
-        target_frame_norm_3d = np.array(mask_frames)
-
-    savemat('OUTPUT/masks/target_frame_mask.mat', {'target_frame_mask': target_frame_norm_3d})
+        
+        scipy.io.savemat('OUTPUT/masks/target_frame_mask.mat', {'target_frame_mask': simulation_data})
 
     plt.ioff()
     plt.show()
-    
-    # np.save("OUTPUT/frame_timestamp.npy",frame_timestamp)
+
 
 if __name__ == '__main__':
     run_simulation()

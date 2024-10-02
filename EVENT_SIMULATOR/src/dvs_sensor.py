@@ -370,6 +370,7 @@ class DvsSensor:
         # self.tau_p[ind] = self.tau  / (img[ind] + 1) * 1e3 # this need to be updated
         
         
+        # TODO: Add imgA output of I
         ################################ FINAL TIME CONSTANT CALCULATION ###################################
         self.tau_p = dvs_warping_package.calculate_time_constants(img, 
                                                                   self.quantum_efficiency, 

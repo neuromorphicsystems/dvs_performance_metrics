@@ -127,36 +127,163 @@ def print_message(message, color='default', style='normal'):
 
 
 
-def calculate_time_constants(img, quantum_efficiency, q, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
+def label_events(binary_target_mask, x, y):
     """
-    Computes the time constants for photoreceptors based on the input image, quantum efficiency, 
-    and several physical parameters.
-    
+    Label events if they fall within a binary pixel or its 3x3 neighbors, after vertically flipping the binary mask.
+
     Parameters:
-    - img: The input image with the photon flux density (photon/m^2.s)
-    - quantum_efficiency: Quantum efficiency constant.
-    - q: Elementary charge constant.
-    - pixel_pitch: Size of a pixel in meters.
-    - fill_factor: Fill factor of the photoreceptors.
-    - Idr: Dark current (2D array matching the input img).
-    - tau_dark: Time constant in the absence of light.
-    - tau_sf: Time constant of the source follower.
+    - binary_target_mask: 2D array (height, width) representing the binary mask.
+    - x, y: 1D arrays of x and y coordinates of events.
 
     Returns:
-    - tau: Per-pixel time constants
+    - l: 1D array of labels where 1 means the event is within a pixel or its 3x3 neighbors.
+    """
+
+    l = numpy.zeros_like(x, dtype=numpy.int32)
+    height, width = binary_target_mask.shape
+
+    # Iterate through each event
+    for i in range(len(x)):
+        # Ensure the event coordinates are within the bounds of the binary mask
+        if 0 <= x[i] < width and 0 <= y[i] < height:
+            # If the corresponding pixel in the binary mask is 1, label the event as 1
+            if binary_target_mask[y[i], x[i]] == 1:
+                l[i] = 1
+
+    return l
+
+
+
+
+def binarize_target_frame(target_frame_norm, psf_size, psf_multiplier, extra_percentage=5):
+    """
+    Binarize the target frame by thresholding it based on the PSF area plus a user-defined extra percentage.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        psf_size: The size of the PSF (Airy disk size).
+        psf_multiplier: The multiplier used when generating the PSF (aperture gain or intensity gain).
+        extra_percentage: The percentage of area to include outside the PSF (default is 5%).
+        
+    Returns:
+        binary_frame: Binarized target frame with 1 inside the threshold and 0 outside.
+        threshold_value: The threshold value used for binarization.
+    """
+    # Flatten the normalized frame for easier manipulation
+    flattened_frame = target_frame_norm.flatten()
+    
+    # Calculate the total number of pixels within the PSF area
+    psf_radius = psf_size * psf_multiplier
+    psf_area = numpy.pi * (psf_radius ** 2)
+    
+    # Add the extra 5% to the area
+    total_pixels_to_include = psf_area * (1 + extra_percentage / 100)
+    
+    # Sort pixel values from highest to lowest
+    sorted_pixels = numpy.sort(flattened_frame)[::-1]
+    
+    # Find the threshold value that selects the appropriate number of pixels
+    cumulative_area = numpy.cumsum(sorted_pixels)
+    threshold_index = numpy.searchsorted(cumulative_area, total_pixels_to_include)
+    
+    # Ensure the threshold is in bounds
+    threshold_value = sorted_pixels[min(threshold_index, len(sorted_pixels) - 1)]
+    
+    # Binarize the frame using the calculated threshold
+    binary_frame = (target_frame_norm >= threshold_value).astype(numpy.uint8)
+    
+    return binary_frame
+
+
+
+
+def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=64, y_offset=0):
+    """
+    Overlays the binary mask as a faint red mask (only where the mask is 1) on top of the accumulated image
+    and labels events based on whether they fall within the binary mask.
+
+    Parameters:
+    - accumulated_image: The accumulated image (e.g., from dvs_warping_package, as a NumPy array or PIL image).
+    - binary_target_mask: The binary mask indicating areas of interest (1), as a NumPy array.
+    - x, y: 1D arrays of x and y coordinates of events.
+    - alpha: Transparency level for the overlay (0-255, where 255 is fully opaque).
+
+    Returns:
+    - A tuple:
+        - A PIL image with the binary mask overlaid on the accumulated image.
+        - A 1D array `l` where events falling inside a pixel with binary mask value 1 are labeled as 1.
+    """
+    
+    accumulated_image_pil = accumulated_image
+        
+    # binary_target_mask = numpy.flipud(binary_target_mask)
+    # Convert the binary mask to an 8-bit grayscale image (0 for background, 255 for mask)
+    binary_mask = Image.fromarray(binary_target_mask.astype(numpy.uint8) * 255)  # Grayscale image (0 or 255)
+    
+    # Create a red image with transparency where the binary mask has value 1
+    red_overlay = Image.new("RGBA", binary_mask.size, (255, 0, 0, alpha))  # Red color with transparency (alpha)
+    
+    # Create a mask to apply the red overlay only where the binary mask is 1
+    binary_mask = binary_mask.convert("L")  # Ensure it's in grayscale mode (L)
+    
+    # Convert the accumulated image to RGBA for overlay compatibility
+    accumulated_image_pil = accumulated_image_pil.convert("RGBA")
+    
+    # Only paste the red overlay where the binary mask is 1
+    accumulated_image_with_overlay = accumulated_image_pil.copy()
+    accumulated_image_with_overlay.paste(red_overlay, (0, 0), mask=binary_mask)  # Paste with the binary mask as transparency
+    
+    # Now perform the horizontal flip on the events before labeling
+    
+    height, width = binary_target_mask.shape
+    
+    # Initialize label array with zeros (same size as x)
+    l = numpy.zeros_like(x, dtype=numpy.int32)
+
+    # Iterate through each event
+    for i in range(len(x)):
+        # Ensure the event coordinates are within the bounds of the binary mask
+        if 0 <= x[i] < width and 0 <= y[i] < height:
+            # If the corresponding pixel in the binary mask is white (value 1), label the event as 1
+            if binary_target_mask[y[i], x[i]] == 1:
+                l[i] = 1
+
+    return accumulated_image_with_overlay, l
+
+
+def calculate_time_constants(photon_flux_density, quantum_efficiency, electron_charge, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
+    """
+    Computes the time constants based from photon flux density
+    
+    Parameters:
+    - photon_flux_density: The input image with the photon flux density (photon/m^2.s)
+    - quantum_efficiency: Quantum efficiency constant.
+    - q: Elementary charge constant (C).
+    - pixel_pitch: Size of a pixel (m).
+    - fill_factor: Fill factor of the photoreceptors.
+    - Idr: Dark current (A) (2D array matching the input photon_flux_density) by default 5.5fA.
+    - tau_dark: Time constant in the absence of light (s).
+    - tau_sf: Time constant of the source follower (s).
+    
+    eq:
+    Iph = η*q*Φ*p^2*ff
+
+
+    Returns:
+    - tau: Per-pixel time constants (s)
     """
     
     # Step 0: Create a 2D array of the dark photocurrent
-    Idr = numpy.full(img.shape, Idr)
+    Idr = numpy.full(photon_flux_density.shape, Idr)
 
     # Step 1: Compute Photocurrent I
-    I = quantum_efficiency * q * pixel_pitch**2 * img * fill_factor
+    I = quantum_efficiency * electron_charge * photon_flux_density * fill_factor * pixel_pitch**2
 
-    # Step 2: Compute Photoreceptor Time Constant tau_p
-    denominator = numpy.maximum(I + Idr, 1e-20)  # Prevent division by zero
-    tau_pr = tau_dark * (Idr / denominator)
+    # Step 2: Compute Photoreceptor Time Constant tau_p (NOT NEEDED)
+    # denominator = numpy.maximum(I + Idr, 1e-20)  # Prevent division by zero
+    tau_pr = tau_dark * (Idr / I + Idr)
 
-    # Step 3: If tau_sf > tau_p, use tau_p; else, use tau_sf
+    # Step 3: If tau_sf > tau_pr, use tau_pr; else, use tau_sf (Select the smallest one)
     tau = numpy.where(tau_sf > tau_pr, tau_pr, tau_sf)
     
     return tau
