@@ -30,7 +30,7 @@ from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
-psf_thr = 10
+psf_thr = 200
 
 def run_simulation():    
     ini_file = 'config/simulation_config_1.ini'
@@ -144,16 +144,18 @@ def run_simulation():
                                                                            SensorBiases,
                                                                            SensorParams)
             
-            binary_frame = dvs_warping_package.binarize_target_frame(target_frame_norm, 
-                                                                     OpticParams['PSF_size'],
-                                                                     InitParams['multiplier'],
-                                                                     extra_percentage=1000)
+            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm, radius_increase=50)
             
+            # binary_image_mask = dvs_warping_package.create_binary_mask_with_psf(target_frame_norm, 
+            #                                                 OpticParams["PSF_size"], 
+            #                                                 InitParams["multiplier"], 
+            #                                                 radius_increase=100)
             # psf_peak = np.max(target_frame_norm)
-            # threshold_value = psf_peak / psf_thr  # default value is 2.5
+            # threshold_value = psf_peak / 1.1  # default value is 2.5
             # binary_target_mask = target_frame_norm > threshold_value
             
-            binary_target_mask = binary_frame
+            binary_target_mask = binary_image_mask
+            
             
             t = Dynamics['t']
             
@@ -201,11 +203,6 @@ def run_simulation():
             warped_image_segmentation_raw = dvs_warping_package.render(cumulative_map_object,
                                                                        colormap_name="magma",
                                                                        gamma=lambda image: image ** (1 / 3))
-
-            # warped_image_segmentation_raw    = dvs_warping_package.rgb_render(cumulative_map_object, seg_label)
-            # warped_image_segmentation_raw.show()
-            
-            # combined_image = dvs_warping_package.overlay_masks(warped_image_segmentation_raw, binary_target_mask)
             
             combined_image, labeled_events = dvs_warping_package.overlay_and_label_events(warped_image_segmentation_raw,
                                                                                           binary_target_mask,
@@ -219,6 +216,27 @@ def run_simulation():
                                                                                                 labeled_events.flatten().astype(np.int32),
                                                                                                 (vx_velocity.T,vy_velocity.T))
             warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+            
+            
+            only_sig = np.where(l==1)
+            cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                binary_target_mask.shape[0]),
+                                                                                                eventsT[only_sig],
+                                                                                                labeled_events[only_sig].flatten().astype(np.int32),
+                                                                                                (vx_velocity[only_sig].T,vy_velocity[only_sig].T))
+            warped_image_only_signal    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+            
+            
+            only_bckg = np.where(l==0)
+            cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                binary_target_mask.shape[0]),
+                                                                                                eventsT[only_bckg],
+                                                                                                labeled_events[only_bckg].flatten().astype(np.int32),
+                                                                                                (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
+            warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+            
+            warped_image_only_signal.save(f"OUTPUT/only_signal/only_sig_{t:.3f}.png")
+            warped_image_only_bckg.save(f"OUTPUT/only_background/only_sig_{t:.3f}.png")
             combined_image.save(f"OUTPUT/combined_image_{t:.3f}.png")
             warped_image_segmentation_rgb_zero.save(f"OUTPUT/warped_image_segmentation_rgb_zero_{t:.3f}.png")
             warped_image_segmentation_raw.save(f"OUTPUT/warped_image_segmentation_raw_{t:.3f}.png")

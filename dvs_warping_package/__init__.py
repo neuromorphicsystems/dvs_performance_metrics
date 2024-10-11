@@ -149,15 +149,13 @@ def label_events(binary_target_mask, x, y):
             # If the corresponding pixel in the binary mask is 1, label the event as 1
             if binary_target_mask[y[i], x[i]] == 1:
                 l[i] = 1
-
     return l
 
 
-
-
-def binarize_target_frame(target_frame_norm, psf_size, psf_multiplier, extra_percentage=5):
+def binarize_target_frame(target_frame_norm, psf_size, psf_multiplier, extra_percentage=10):
     """
-    Binarize the target frame by thresholding it based on the PSF area plus a user-defined extra percentage.
+    Binarize the target frame by thresholding it based on the PSF area plus a user-defined extra percentage,
+    and return the coordinates of the circle that overlays the PSF area.
     
     Args:
         target_frame_norm: Normalized target frame with PSF intensity values.
@@ -168,35 +166,71 @@ def binarize_target_frame(target_frame_norm, psf_size, psf_multiplier, extra_per
     Returns:
         binary_frame: Binarized target frame with 1 inside the threshold and 0 outside.
         threshold_value: The threshold value used for binarization.
+        circle_params: Parameters of the circle overlay (center_x, center_y, radius).
     """
     # Flatten the normalized frame for easier manipulation
     flattened_frame = target_frame_norm.flatten()
     
-    # Calculate the total number of pixels within the PSF area
+    # Calculate the PSF radius and area, considering the multiplier
     psf_radius = psf_size * psf_multiplier
     psf_area = numpy.pi * (psf_radius ** 2)
     
-    # Add the extra 5% to the area
+    # Add the extra percentage to the PSF area to account for background inclusion
     total_pixels_to_include = psf_area * (1 + extra_percentage / 100)
     
-    # Sort pixel values from highest to lowest
+    # Sort pixel values from highest to lowest to determine intensity levels
     sorted_pixels = numpy.sort(flattened_frame)[::-1]
     
-    # Find the threshold value that selects the appropriate number of pixels
+    # Find the threshold index based on the cumulative area and total pixels to include
     cumulative_area = numpy.cumsum(sorted_pixels)
     threshold_index = numpy.searchsorted(cumulative_area, total_pixels_to_include)
     
-    # Ensure the threshold is in bounds
+    # Ensure the threshold is valid and select the appropriate intensity value
     threshold_value = sorted_pixels[min(threshold_index, len(sorted_pixels) - 1)]
     
-    # Binarize the frame using the calculated threshold
+    # Binarize the frame using the calculated threshold to select the PSF and slight background
     binary_frame = (target_frame_norm >= threshold_value).astype(numpy.uint8)
+
+    # Find the centroid of the PSF by calculating the weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    center_x = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    center_y = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
     
-    return binary_frame
+    # Calculate the radius of the circle based on total pixels to include
+    radius = numpy.sqrt(total_pixels_to_include / numpy.pi)
+
+    # Return the binary image and circle parameters (center_x, center_y, radius)
+    circle_params = (center_x, center_y, radius)
+    
+    return binary_frame, circle_params
 
 
-
-
+def plot_with_circle(binary_image, circle_params):
+    """
+    Plots the binary image with an overlay of a circle showing the boundary around the PSF object.
+    
+    Args:
+        binary_image: The binary image after thresholding.
+        circle_params: Parameters of the circle (center_x, center_y, radius).
+    """
+    center_x, center_y, radius = circle_params
+    
+    # Plot the binary image
+    fig, ax = plt.subplots()
+    ax.imshow(binary_image, cmap='gray')
+    
+    # Overlay the circle
+    circle = plt.Circle((center_x, center_y), radius, color='red', fill=False, linewidth=1)
+    ax.add_patch(circle)
+    
+    # Set plot details
+    ax.set_title("Binary PSF with Overlay Circle")
+    ax.axis('off')
+    plt.savefig("OUTPUT/3_target_frame_norm.png", bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    # plt.show()
+    
+    
 def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=64, y_offset=0):
     """
     Overlays the binary mask as a faint red mask (only where the mask is 1) on top of the accumulated image
@@ -249,6 +283,96 @@ def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=
                 l[i] = 1
 
     return accumulated_image_with_overlay, l
+
+
+def create_binary_mask(target_frame_norm, radius_increase):
+    """
+    Calculate the PSF center and the bumped-up radius using the maximum threshold possible,
+    and create a new binary mask with the object at the same coordinates but with the new radius.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        radius_increase: The percentage to bump the PSF radius.
+        
+    Returns:
+        x_center: X coordinate of the PSF center.
+        y_center: Y coordinate of the PSF center.
+        radius_high: The bumped-up radius after increasing by the user-defined percentage.
+        new_binary_image: The binary mask with the object at the same center but with the new radius.
+    """
+    # Calculate the maximum threshold (which selects all non-zero pixels)
+    max_threshold = numpy.max(target_frame_norm)/10
+    
+    # Create a binary mask based on the maximum threshold
+    binary_mask = (target_frame_norm >= max_threshold).astype(numpy.uint8)
+    
+    # Find the centroid of the PSF using weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    
+    # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    
+    # Bump the radius by the user-defined percentage
+    radius_high = psf_radius * (1 + radius_increase / 100)
+    
+    # Create a new binary mask with the bumped radius, keeping the same center
+    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
+    
+    # Calculate the coordinates of the pixels within the new bumped radius
+    for y in range(new_binary_image.shape[0]):
+        for x in range(new_binary_image.shape[1]):
+            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+                new_binary_image[y, x] = 1
+    
+    return new_binary_image #x_center, y_center, radius_high, new_binary_image
+
+
+def create_binary_mask_with_psf(target_frame_norm, psf_size, psf_multiplier, radius_increase):
+    """
+    Calculate the PSF center and the bumped-up radius using the maximum threshold possible,
+    and create a new binary mask with the object at the same coordinates but with the new radius.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        psf_size: The size of the PSF (Airy disk size).
+        psf_multiplier: The multiplier used when generating the PSF (aperture gain or intensity gain).
+        radius_increase: The percentage to bump the PSF radius (inversely proportional to the PSF size).
+        
+    Returns:
+        new_binary_image: The binary mask with the object at the same center but with the new radius.
+    """
+    # Calculate the maximum threshold (which selects all non-zero pixels)
+    max_threshold = numpy.max(target_frame_norm) / 10
+    
+    # Create a binary mask based on the maximum threshold
+    binary_mask = (target_frame_norm >= max_threshold).astype(numpy.uint8)
+    
+    # Find the centroid of the PSF using the weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    
+    # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    
+    # Adjust the radius increase inversely proportional to the PSF size and multiplier
+    effective_radius_increase = radius_increase / (psf_size * psf_multiplier)
+    
+    # Bump the radius by the adjusted increase
+    radius_high = psf_radius * (1 + effective_radius_increase / 100)
+    
+    # Create a new binary mask with the bumped radius, keeping the same center
+    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
+    
+    # Calculate the coordinates of the pixels within the new bumped radius
+    for y in range(new_binary_image.shape[0]):
+        for x in range(new_binary_image.shape[1]):
+            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+                new_binary_image[y, x] = 1
+    
+    return new_binary_image
 
 
 def calculate_time_constants(photon_flux_density, quantum_efficiency, electron_charge, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
