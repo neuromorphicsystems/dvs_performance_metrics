@@ -285,7 +285,7 @@ def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=
     return accumulated_image_with_overlay, l
 
 
-def create_binary_mask(target_frame_norm, radius_increase):
+def create_binary_mask(target_frame_norm):
     """
     Calculate the PSF center and the bumped-up radius using the maximum threshold possible,
     and create a new binary mask with the object at the same coordinates but with the new radius.
@@ -315,7 +315,10 @@ def create_binary_mask(target_frame_norm, radius_increase):
     psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
     
     # Bump the radius by the user-defined percentage
-    radius_high = psf_radius * (1 + radius_increase / 100)
+    # radius_high = psf_radius * (1 + radius_increase / 100)
+    # radius_high = psf_radius * (1 + 20 / psf_radius)
+    radius_high = psf_radius * 1.25 # an constant increase of 25%
+    
     
     # Create a new binary mask with the bumped radius, keeping the same center
     new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)

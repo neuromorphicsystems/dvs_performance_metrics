@@ -144,7 +144,7 @@ def run_simulation():
                                                                            SensorBiases,
                                                                            SensorParams)
             
-            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm, radius_increase=50)
+            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm)
             
             # binary_image_mask = dvs_warping_package.create_binary_mask_with_psf(target_frame_norm, 
             #                                                 OpticParams["PSF_size"], 
@@ -235,11 +235,11 @@ def run_simulation():
                                                                                                 (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
             warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
             
-            warped_image_only_signal.save(f"OUTPUT/only_signal/only_sig_{t:.3f}.png")
-            warped_image_only_bckg.save(f"OUTPUT/only_background/only_sig_{t:.3f}.png")
-            combined_image.save(f"OUTPUT/combined_image_{t:.3f}.png")
-            warped_image_segmentation_rgb_zero.save(f"OUTPUT/warped_image_segmentation_rgb_zero_{t:.3f}.png")
-            warped_image_segmentation_raw.save(f"OUTPUT/warped_image_segmentation_raw_{t:.3f}.png")
+            warped_image_only_signal.save(f"OUTPUT/only_signal/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+            warped_image_only_bckg.save(f"OUTPUT/only_background/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+            combined_image.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_combined_image_{t:.3f}.png")
+            warped_image_segmentation_rgb_zero.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")
+            # warped_image_segmentation_raw.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_raw_{t:.3f}.png")
             
             
     
