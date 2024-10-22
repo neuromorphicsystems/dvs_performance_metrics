@@ -95,16 +95,15 @@ if __name__ == '__main__':
     FSNR_all      = np.zeros((len(target_radius)))
     
     for i in range(0,len(target_radius)):
-        
-        simulation_data_path = f'OUTPUT/masks/simulation_data_target_radius_{target_radius[i]}.mat'
+        simulation_data_path = f'OUTPUT/masks/simulation_data_target_radius_{float(target_radius[i])}.mat'
 
         # Check if the file exists
         if not os.path.exists(simulation_data_path):
             print(f"File not found: {simulation_data_path}. Skipping to the next target radius.")
             continue
         
-        mat_data = scipy.io.loadmat(simulation_data_path, 
-                                    struct_as_record=False, 
+        mat_data = scipy.io.loadmat(simulation_data_path,
+                                    struct_as_record=False,
                                     squeeze_me=True)
 
         simulation_data = mat_data['simulation_data']
@@ -138,7 +137,7 @@ if __name__ == '__main__':
         matrix_size = (int(np.max(event_x)) + 1, int(np.max(event_y)) + 1)
 
         FSNR,F_sig,F_bg = calc_FlickSNR(Signal_events, BG_events, matrix_size)
-        print(FSNR)
+        print(f"target_radius: {target_radius[i]} FSNR: {FSNR}")
         FSNR_all[i] = FSNR
     
     # Plot results
