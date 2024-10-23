@@ -39,9 +39,6 @@ def run_simulation():
     # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
 
     # simulation_data = []
-
-    # Create the event buffer and arbiter
-    ev_full = EventBuffer(1)
     
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
@@ -67,6 +64,9 @@ def run_simulation():
         if section == 'SensorParams':
             SensorParams[param] = scanned_param_values[0][param_value_index]
 
+        # Create the event buffer and arbiter
+        ev_full = EventBuffer(1)
+    
         # Initialize simulation data function
         Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         t = Dynamics['t']             # Start time (from initialized dynamics)
@@ -128,6 +128,7 @@ def run_simulation():
                                                                            SensorBiases,
                                                                            SensorParams)
             
+            ## TODO
             binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm)
             binary_target_mask = binary_image_mask
             

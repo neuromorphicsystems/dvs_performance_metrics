@@ -8,50 +8,6 @@ import matplotlib.pyplot as plt
 sys.path.append("EVENT_SIMULATOR/src")
 from dat_files import load_dat_event
 
-''' Example
-# Sample data
-Signal_events = {
-    'x': np.array([1, 2, 2, 3]),
-    'y': np.array([1, 1, 2, 3]),
-    'on': np.array([1, 0, 1, 0])
-}
-
-BG_events = {
-    'x': np.array([1, 2, 3, 3]),
-    'y': np.array([1, 2, 2, 3]),
-    'on': np.array([0, 1, 0, 1])
-}
-
-matrix_size = (3, 3)
-
-# Function call
-FSNR, F_sig, F_bg = calc_FlickSNR(Signal_events, BG_events, matrix_size)
-
-print("FSNR:", FSNR)
-print("F_sig:\n", F_sig)
-print("F_bg:\n", F_bg)
-'''
-# def calc_FlickSNR(Signal_events, BG_events, matrix_size):
-#     F_sig = np.zeros((matrix_size[0], matrix_size[1]))
-#     F_bg = np.zeros((matrix_size[0], matrix_size[1]))
-
-#     for xi in tqdm(range(matrix_size[0])):
-#         for yi in range(matrix_size[1]):
-#             xi_index = xi + 1
-#             yi_index = yi + 1
-
-#             ind_sig = (Signal_events['x'] == xi_index) & (Signal_events['y'] == yi_index)
-#             if np.any(ind_sig):
-#                 on_sig = Signal_events['on'][ind_sig]
-#                 F_sig[xi, yi] = 2 * np.sum(on_sig) * np.sum(1 - on_sig) / len(on_sig)
-
-#             ind_bg = (BG_events['x'] == xi_index) & (BG_events['y'] == yi_index)
-#             if np.any(ind_bg):
-#                 on_bg = BG_events['on'][ind_bg]
-#                 F_bg[xi, yi] = 2 * np.sum(on_bg) * np.sum(1 - on_bg) / len(on_bg)
-
-#     FSNR = np.max(F_sig) / np.std(F_bg)
-#     return FSNR
 
 def calc_FlickSNR(Signal_events, BG_events, matrix_size):
     # Convert 'x' and 'y' indices to integers
@@ -96,8 +52,6 @@ if __name__ == '__main__':
     
     for i in range(0,len(target_radius)):
         simulation_data_path = f'OUTPUT/masks/simulation_data_target_radius_{float(target_radius[i])}.mat'
-
-        # Check if the file exists
         if not os.path.exists(simulation_data_path):
             print(f"File not found: {simulation_data_path}. Skipping to the next target radius.")
             continue
