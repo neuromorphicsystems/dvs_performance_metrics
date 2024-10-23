@@ -4,10 +4,10 @@
 import cv2
 import numpy as np
 import sys
-sys.path.append("../../src")
+sys.path.append("EVENT_SIMULATOR/src")
 from dat_files import load_dat_event
 
-filename = '../../videos/ev_500_50_100_10_0.3_0.01.dat'
+filename = 'OUTPUT/events/ev_target_radius_0.7_500.0_350.0_0.6_0.5_0.02.dat'
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
 ts, x, y, p = load_dat_event(filename)
 res = [max(x)+1, max(y)+1]
