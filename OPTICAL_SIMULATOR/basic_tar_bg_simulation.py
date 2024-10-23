@@ -22,6 +22,8 @@ from scipy.signal import fftconvolve
 from scipy.ndimage import zoom
 import configparser
 from astropy.convolution import AiryDisk2DKernel
+import matplotlib.pyplot as plt
+from PIL import Image
 
 def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams):
     # Initialize optical parameters
@@ -249,7 +251,15 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
     # Update dynamics (mock update)
     Dynamics['t'] += InitParams['dt']
     
-    return pixel_frame, Dynamics, target_frame_norm
+    target_frame_norm = np.array(target_frame_norm)
+    target_height = SensorParams['height']
+    target_width = SensorParams['width']
+    normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
+    target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
+    resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
+    resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
+
+    return pixel_frame, Dynamics, resized_target_frame_norm
 
 
 def make_BG_frame(width, height, multiplier, BgParams, pixel_shift):
@@ -410,6 +420,7 @@ def read_ini_file(ini_file):
         'diff_off': get_clean_value(config['SensorBiases']['diff_off'], float),
         'refr': get_clean_value(config['SensorBiases']['refr'], float),
     }
+
     
     if InitParams["sensor_model"]=="Gen4":
         config2 = configparser.ConfigParser()
@@ -435,6 +446,14 @@ def read_ini_file(ini_file):
             'tau_dark': get_clean_value(config['ManualSensorParams']['tau_dark'], float),
             'QE': get_clean_value(config['ManualSensorParams']['QE'], float),
             'threshold_noise': get_clean_value(config['ManualSensorParams']['threshold_noise'], float),
+            'latency_jitter': get_clean_value(config['ManualSensorParams']['latency_jitter'], float),
+            'lat': get_clean_value(config['ManualSensorParams']['lat'], float),
+            'jit': get_clean_value(config['ManualSensorParams']['jit'], float),
+            'dt': get_clean_value(config['ManualSensorParams']['dt'], float),
+            'time': get_clean_value(config['ManualSensorParams']['time'], float),
+            'pixel_pitch': get_clean_value(config['ManualSensorParams']['pixel_pitch'], float),
+            'Idr': get_clean_value(config['ManualSensorParams']['Idr'], float),
+            'q': get_clean_value(config['ManualSensorParams']['q'], float),
             }
 
     scanned_params = {}

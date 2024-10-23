@@ -10,46 +10,43 @@ import matplotlib.pyplot as plt
 from basic_tar_bg_simulation import frame_sim_functions,initialize_simulation_params,read_ini_file
 import cv2
 import sys
+from PIL import Image, ImageEnhance, ImageOps
 
 from tqdm import tqdm
 import os
 import matplotlib.pyplot as plt
 import scipy.io as sio
+import dvs_warping_package
+from scipy.io import savemat
+import scipy.io
 
-# th_pos = 0.3        # ON threshold = 50% (ln(1.5) = 0.4)
-# th_neg = 0.4        # OFF threshold = 50%
-# th_noise = 0.01     # standard deviation of threshold noise
-# lat = 500           # latency in us
-# tau = 10            # front-end time constant at 1 klux in us
-# jit = 50            # temporal jitter standard deviation in us
-# bgnp = 0.01         # ON event noise rate in events / pixel / s
-# bgnn = 0.01         # OFF event noise rate in events / pixel / s
-# ref = 100           # refractory period in us
-# dt = 1000           # time between frames in us
-# time = 0
-# leakeage_current = 1e2
-# fmin             = 4.7e-5
-# F_max            = 10e6 * fmin
+sys.path.append("EVENT_SIMULATOR/src")
+from event_buffer import EventBuffer
+from dvs_sensor import DvsSensor
+from event_display import EventDisplay
+from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-# Main function to run the simulation
-def run_simulation():
-    # Read the configuration file
-    
-    # ini_file = '../config/simulation_config_1.ini'
+
+bgnp = 0.3 # ON event noise rate in events / pixel / s
+bgnn = 0.3 # OFF event noise rate in events / pixel / s
+
+def run_simulation():    
     ini_file = 'config/simulation_config_1.ini'
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
 
-    plt.ion()    
-    fig, ax = plt.subplots()
+    # plt.ion()    
+    # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
+
+    # simulation_data = []
     
     if scanned_params:
-        scanned_param_name = list(scanned_params.keys())  # Names of parameters
-        scanned_param_values = list(scanned_params.values())  # Corresponding values (as lists)
+        scanned_param_name = list(scanned_params.keys())
+        scanned_param_values = list(scanned_params.values())
     else:
-        scanned_param_name = list(['.'])
-        scanned_param_values =list([1])
+        scanned_param_name      = []
+        scanned_param_values    = [0]
 
-    for param_value_index in range(len(scanned_param_values)):
+    for param_value_index in tqdm(range(len(scanned_param_values[0]))):
         section, param = scanned_param_name[0].split('.')
         if section == 'InitParams':
             InitParams[param] = scanned_param_values[0][param_value_index]
@@ -65,92 +62,208 @@ def run_simulation():
             SensorBiases[param] = scanned_param_values[0][param_value_index]
         if section == 'SensorParams':
             SensorParams[param] = scanned_param_values[0][param_value_index]
-        
 
+        # Create the event buffer and arbiter
+        ev_full = EventBuffer(1)
+        
         # Initialize simulation data function
         Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         t = Dynamics['t']             # Start time (from initialized dynamics)
         t_end = InitParams['t_end']   # End time (from the INI file)    
 
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
-
-        # Create the initial frame and setup simulation plots
-        if param_value_index==0:
-            imgg = ax.imshow(initial_frame, cmap='gray', animated=True)
-            title = ax.set_title(f'Time: {1000*t:.2f} ms')
-            plt.colorbar(imgg, ax=ax)#, label='Intensity')
+        frame_size = [SensorParams['height'], SensorParams['width']]
         
+        simulation_data = []
+        all_labels = []
+        
+        # # Create the initial frame and setup simulation plots
+        # if param_value_index == 0:
+        #     imgg1 = ax1.imshow(initial_frame,
+        #                        cmap='gray',
+        #                        animated=True)
+        #     ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
+        #     plt.colorbar(imgg1, ax=ax1)
+
         im = initial_frame
-        # Initialize event simulator model
-        # dvs = DvsSensor("MySensor")
-        # dvs.initCamera(im.shape[1], im.shape[0],
-        #                 lat=lat, jit = jit, ref = SensorBiases['refr'],
-        #                 tau = tau, th_pos = SensorBiases['diff_on'], th_neg = SensorBiases['diff_off'],
-        #                 th_noise = th_noise, bgnp=bgnp, bgnn=bgnn,
-        #                 lcurr=leakeage_current,fmax=F_max)
 
-        # suggested input to init dvs cam (need to get event simulator to accept these):
-        #dvs.initCamera(SensorParams['height'], SensorParams['width'],
-        #                lat=lat, jit = jit, ref = SensorBiases['refr'],
-        #                tau = tau, th_pos = SensorBiases['diff_on'], th_neg = SensorBiases['diff_off'],
-        #                th_noise = th_noise, bgnp=bgnp, bgnn=bgnn,
-        #                lcurr=leakeage_current,fmax=F_max)
+        # Initialize DVS sensor
+        dvs = DvsSensor("MySensor")
+        dvs.initCamera(frame_size[1], 
+                       frame_size[0],
+                       lat=SensorParams['lat'], 
+                       jit=SensorParams['jit'], 
+                       ref=SensorBiases['refr'],
+                       tau=SensorParams['tau_dark'], 
+                       th_pos=SensorBiases['diff_on'], 
+                       th_neg=SensorBiases['diff_off'], 
+                       th_noise=SensorParams['threshold_noise'],
+                       bgnp=bgnp, bgnn=bgnn, 
+                       Idr=SensorParams['Idr'],
+                       pp=SensorParams['pixel_pitch'], 
+                       qe=SensorParams['QE'], 
+                       ff=SensorParams['fill_factor'],
+                       tsf=SensorParams['tau_sf'], 
+                       tdr=SensorParams['tau_dark'], 
+                       q=SensorParams['q'])
+        
+        dvs.init_image(im)
+        ea = SynchronousArbiter(0.1, SensorParams['time'], im.shape[0])
+        
+        # Create the display for events
+        render_timesurface = 1
+        # ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
 
-        # # To use the measured noise distributions, uncomment the following line
-        # dvs.init_bgn_hist("EVENT_SIMULATOR/data/noise_pos_161lux.npy", "EVENT_SIMULATOR/data/noise_neg_161lux.npy")
-        # # Set as the initial condition of the sensor
-        # dvs.init_image(im)
-        # # Create the event buffer
-        # ev_full = EventBuffer(1)
-        # # Create the arbiter - optional, pick from one below
-        # ea = SynchronousArbiter(0.1, time, im.shape[0])  # DVS346-like arbiter
-        # # Create the display
-        # render_timesurface = 1
-        # ed = EventDisplay("Events",
-        #                 im.shape[1],
-        #                 im.shape[0],
-        #                 dt,
-        #                 render_timesurface)
-
-        # Run the simulation loop until t exceeds t_end
+        # Simulation loop
         while t < t_end:
-            
+            simulation_data.append({'t': t})
             # Create the camera pixel frame and target mask
-            pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
+            pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics,
+                                                                           InitParams,
+                                                                           SceneParams,
+                                                                           OpticParams,
+                                                                           TargetParams,
+                                                                           BgParams,
+                                                                           SensorBiases,
+                                                                           SensorParams)
+            
+            ## TODO
+            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm)
+            binary_target_mask = binary_image_mask
+            
             t = Dynamics['t']
             
-            # # Run event simulator using the current image frame
-            # ev = dvs.update(im, dt)
+            # Run event simulator using the current image frame
+            ev = dvs.update(pixel_frame, SensorParams['dt'])
+            ev_full.increase_ev(ev)
             
-            # # Classify events to "target" and "background" according to 2 target masks
-            # # Classify the events = 2 frames  +event in between (target mask with PSF)
+            # per event labelling based on the binary mask
+            l = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
+            
+            event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('ts', 'f4'), ('l', 'i4')])
+            events_array = np.zeros(len(ev.x), dtype=event_dtype)
+            events_array['x']  = ev.x.flatten()
+            events_array['y']  = ev.y.flatten()
+            events_array['p']  = ev.p.flatten()
+            events_array['ts'] = ev.ts.flatten()
+            events_array['l']  = np.array(l).flatten()
+            
+            all_labels.extend(events_array.tolist())
+            
+            # Store the pixel displacement in the current data
+            current_data = {
+                'i_azimuth': Dynamics['i_azimuth'],
+                'i_elevation': Dynamics['i_elevation'],
+                't_azimuth': Dynamics['t_azimuth'],
+                't_elevation': Dynamics['t_elevation'],
+                'imaging_los_speed': Dynamics['imaging_los_speed'],
+                'binary_target_mask': binary_target_mask,
+                'dx/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
+                'dy/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+                'x': ev.x,
+                'y': ev.y,
+                'p': ev.p,
+                'ts': ev.ts,
+                'l': l
+            }
+            simulation_data[-1].update(current_data)
+            
+            # simulation_data.append(current_data)
+            
+            # eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
+            #                                      ('x', 'f8'),
+            #                                      ('y', 'f8'),
+            #                                      ('p', 'f8')])
+            
+            # eventsT['t'] = ev.ts.astype(np.float64)
+            # eventsT['x'] = ev.x.astype(np.float64)
+            # eventsT['y'] = ev.y.astype(np.float64)
+            # eventsT['p'] = ev.p.astype(np.float64)
+            
+            # vx_velocity = np.zeros((len(eventsT["x"]), 1)) + 0.0 / 1e6
+            # vy_velocity = np.zeros((len(eventsT["y"]), 1)) + 0.0 / 1e6
+            
+            # cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
+            #                                                         binary_target_mask.shape[0]),
+            #                                                         eventsT,
+            #                                                         (0,0))
+            # warped_image_segmentation_raw = dvs_warping_package.render(cumulative_map_object,
+            #                                                            colormap_name="magma",
+            #                                                            gamma=lambda image: image ** (1 / 3))
+            
+            # combined_image, labeled_events = dvs_warping_package.overlay_and_label_events(warped_image_segmentation_raw,
+            #                                                                               binary_target_mask,
+            #                                                                               ev.x,
+            #                                                                               ev.y,
+            #                                                                               y_offset=0)
+
+            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+            #                                                                                     binary_target_mask.shape[0]),
+            #                                                                                     eventsT,
+            #                                                                                     labeled_events.flatten().astype(np.int32),
+            #                                                                                     (vx_velocity.T,vy_velocity.T))
+            # warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
             
             
-            # # frame_timestamp.append((ev.ts[0],ev.ts[-2]))
-            # ed.update(ev, dt)
-            # # Add the events to the buffer for the full video
-            # ev_full.increase_ev(ev)
+            # only_sig = np.where(l==1)
+            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+            #                                                                                     binary_target_mask.shape[0]),
+            #                                                                                     eventsT[only_sig],
+            #                                                                                     labeled_events[only_sig].flatten().astype(np.int32),
+            #                                                                                     (vx_velocity[only_sig].T,vy_velocity[only_sig].T))
+            # warped_image_only_signal    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
             
             
+            # only_bckg = np.where(l==0)
+            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+            #                                                                                     binary_target_mask.shape[0]),
+            #                                                                                     eventsT[only_bckg],
+            #                                                                                     labeled_events[only_bckg].flatten().astype(np.int32),
+            #                                                                                     (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
+            # warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+            
+            # warped_image_only_signal.save(f"OUTPUT/only_signal/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+            # warped_image_only_bckg.save(f"OUTPUT/only_background/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+            # combined_image.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_combined_image_{t:.3f}.png")
+            # warped_image_segmentation_rgb_zero.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")
+            # # warped_image_segmentation_raw.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_raw_{t:.3f}.png")
             
             
-            # Update initial frames to fit the new frames
-            initial_frame = pixel_frame
-            initial_target_frame = target_frame_norm
+            # # Update EventDisplay with events
+            # ed.update(ev, SensorParams['dt'])
             
-            # Plot new simulation frame (and classified events as well?)
-            imgg.set_array(pixel_frame)
-            title.set_text(f'Time: {1000*t:.2f} ms')
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-            plt.pause(0.001)
-                
-                    
-plt.ioff()
-plt.show()
-    
-        # save event stream to file (put in folder together with an initial frame and param .ini file)
+            
+            # # Update initial frames to fit the new frames
+            # initial_frame = pixel_frame
+            # initial_target_frame = target_frame_norm
+            
+            # # Plot the pixel frame
+            # imgg1.set_array(pixel_frame)
+            # ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
+
+            # # Plot the events in the second subplot
+            # ax2.clear()
+            # ax2.set_title("Event Display")
+            # ax2.imshow(ed.get_image(), cmap='gray')
+            
+            # # Update the figures
+            # plt.pause(0.001)
+
         
+        ev_full.write("OUTPUT/events/ev_target_radius_{}_{}_{}_{}_{}_{}.dat".format(
+                                                               TargetParams['target_radius'],
+                                                               SensorParams['lat'], 
+                                                               SensorParams['jit'], 
+                                                               SensorBiases['diff_on'], 
+                                                               SensorBiases['diff_off'], 
+                                                               SensorParams['threshold_noise']))
+        simulation_data.append({'all_events': np.array(all_labels)})
+        scipy.io.savemat(f"OUTPUT/masks/simulation_data_target_radius_{TargetParams['target_radius']}.mat", 
+                         {"simulation_data": simulation_data})
+
+    plt.ioff()
+    plt.show()
+
 
 if __name__ == '__main__':
     run_simulation()
