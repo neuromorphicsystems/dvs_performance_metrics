@@ -7,10 +7,10 @@ Created on Fri Sep 13 16:29:52 2024
 
 import numpy as np
 import matplotlib.pyplot as plt
-from basic_tar_bg_simulation import frame_sim_functions,initialize_simulation_params,read_ini_file
 import cv2
 import sys
 from PIL import Image, ImageEnhance, ImageOps
+import argparse
 
 from tqdm import tqdm
 import os
@@ -21,6 +21,8 @@ from scipy.io import savemat
 import scipy.io
 
 sys.path.append("EVENT_SIMULATOR/src")
+sys.path.append("OPTICAL_SIMULATOR")
+from basic_tar_bg_simulation import frame_sim_functions,initialize_simulation_params,read_ini_file
 from event_buffer import EventBuffer
 from dvs_sensor import DvsSensor
 from event_display import EventDisplay
@@ -30,8 +32,8 @@ from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
 
-def run_simulation():    
-    ini_file = 'config/simulation_config_1.ini'
+def run_simulation(config_file_name):    
+    ini_file = f"config/{config_file_name}.ini"
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
 
     plt.ion()    
@@ -92,27 +94,28 @@ def run_simulation():
         dvs.initCamera(frame_size[1], 
                        frame_size[0],
                        lat=SensorParams['lat'], 
-                       jit=SensorParams['jit'], 
+                       jit=SensorParams['latency_jitter'], 
                        ref=SensorBiases['refr'],
                        tau=SensorParams['tau_dark'], 
                        th_pos=SensorBiases['diff_on'], 
                        th_neg=SensorBiases['diff_off'], 
                        th_noise=SensorParams['threshold_noise'],
                        bgnp=bgnp, bgnn=bgnn, 
-                       Idr=SensorParams['Idr'],
+                       Idr=5.5e-15,
                        pp=SensorParams['pixel_pitch'], 
                        qe=SensorParams['QE'], 
                        ff=SensorParams['fill_factor'],
                        tsf=SensorParams['tau_sf'], 
                        tdr=SensorParams['tau_dark'], 
-                       q=SensorParams['q'])
+                       q=1.602176634e-19)
         
         dvs.init_image(im)
-        ea = SynchronousArbiter(0.1, SensorParams['time'], im.shape[0])
+        ea = SynchronousArbiter(0.1, 0, im.shape[0])
         
         # Create the display for events
         render_timesurface = 1
-        ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
+        dt_us = InitParams['dt']*1e6
+        ed = EventDisplay("Events", frame_size[1], frame_size[0], dt_us, render_timesurface)
 
         # Simulation loop
         while t < t_end:
@@ -136,7 +139,7 @@ def run_simulation():
             t = Dynamics['t']
             
             # Run event simulator using the current image frame
-            ev = dvs.update(pixel_frame, SensorParams['dt'])
+            ev = dvs.update(pixel_frame, dt_us)
             ev_full.increase_ev(ev)
             
             # per event labelling based on the binary mask
@@ -232,7 +235,7 @@ def run_simulation():
             
             
             # Update EventDisplay with events
-            ed.update(ev, SensorParams['dt'])
+            ed.update(ev, dt_us)
             
             
             # Update initial frames to fit the new frames
@@ -265,4 +268,14 @@ def run_simulation():
 
 
 if __name__ == '__main__':
-    run_simulation()
+    # Create an ArgumentParser object
+    parser = argparse.ArgumentParser(description='Run simulation with config file.')
+    
+    # Add a positional argument for the config file name
+    parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
+
+    # Parse the command-line arguments
+    args = parser.parse_args()
+
+    # Call the function with the config file name provided from the command line
+    run_simulation(args.config_file_name)

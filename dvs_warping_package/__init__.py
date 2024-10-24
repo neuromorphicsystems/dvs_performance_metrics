@@ -304,32 +304,32 @@ def create_binary_mask(target_frame_norm):
     max_threshold = numpy.max(target_frame_norm)/10
     
     # Create a binary mask based on the maximum threshold
-    binary_mask = (target_frame_norm >= max_threshold).astype(numpy.uint8)
+    binary_mask = (target_frame_norm >= max_threshold).astype(bool)
+
+    # # Find the centroid of the PSF using weighted average of pixel positions
+    # y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    # x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    # y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
     
-    # Find the centroid of the PSF using weighted average of pixel positions
-    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
-    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
-    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    # # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    # psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
     
-    # Calculate the original PSF radius (distance from center to the edge of the binary object)
-    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
-    
-    # Bump the radius by the user-defined percentage
-    # radius_high = psf_radius * (1 + radius_increase / 100)
-    # radius_high = psf_radius * (1 + 20 / psf_radius)
-    radius_high = psf_radius * 1.25 # an constant increase of 25%
+    # # Bump the radius by the user-defined percentage
+    # # radius_high = psf_radius * (1 + radius_increase / 100)
+    # # radius_high = psf_radius * (1 + 20 / psf_radius)
+    # radius_high = psf_radius * 1 # an constant increase of 25%
     
     
-    # Create a new binary mask with the bumped radius, keeping the same center
-    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
+    # # Create a new binary mask with the bumped radius, keeping the same center
+    # new_binary_image = numpy.zeros_like(target_frame_norm, dtype=bool)
     
-    # Calculate the coordinates of the pixels within the new bumped radius
-    for y in range(new_binary_image.shape[0]):
-        for x in range(new_binary_image.shape[1]):
-            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
-                new_binary_image[y, x] = 1
+    # # Calculate the coordinates of the pixels within the new bumped radius
+    # for y in range(new_binary_image.shape[0]):
+    #     for x in range(new_binary_image.shape[1]):
+    #         if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+    #             new_binary_image[y, x] = 1
     
-    return new_binary_image #x_center, y_center, radius_high, new_binary_image
+    return binary_mask #x_center, y_center, radius_high, new_binary_image
 
 
 def create_binary_mask_with_psf(target_frame_norm, psf_size, psf_multiplier, radius_increase):
