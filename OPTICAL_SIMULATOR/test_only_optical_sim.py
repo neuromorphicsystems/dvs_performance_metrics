@@ -27,7 +27,7 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-SAVE_FRAME_VIDEO = 1
+SAVE_FRAMES = 0
 
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
@@ -105,11 +105,11 @@ def run_simulation():
             os.makedirs(f"OUTPUT/masks", exist_ok=True)
             
         # Create the display for events
-        if SAVE_FRAME_VIDEO:
+        if SAVE_FRAMES:
             render_timesurface = 1
             ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
             
-            if SAVE_FRAME_VIDEO:
+            if SAVE_FRAMES:
                 dirs = [
                     "OUTPUT/only_signal","OUTPUT/only_background","OUTPUT/mask_overlay","OUTPUT/labeled_image"
                 ]
@@ -171,7 +171,7 @@ def run_simulation():
             simulation_data[-1].update(current_data)
             
             
-            if SAVE_FRAME_VIDEO:
+            if SAVE_FRAMES:
                 eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
                                                     ('x', 'f8'),
                                                     ('y', 'f8'),
