@@ -28,27 +28,30 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-
-bgnp = 0.3 # ON event noise rate in events / pixel / s
-bgnn = 0.3 # OFF event noise rate in events / pixel / s
+DO_PLOTS = 0
+bgnp = 0.8 # ON event noise rate in events / pixel / s
+bgnn = 0.8 # OFF event noise rate in events / pixel / s
 
 def run_simulation(config_file_name):    
     ini_file = f"config/{config_file_name}.ini"
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
 
-    plt.ion()    
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
+    if DO_PLOTS:
+        plt.ion()    
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
 
     # simulation_data = []
     
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
         scanned_param_values = list(scanned_params.values())
+        range_of_scan = range(len(scanned_param_values[0]))
     else:
         scanned_param_name      = list(['.'])
-        scanned_param_values    = list([])
+        scanned_param_values    = list()
+        range_of_scan = range(1)
 
-    for param_value_index in tqdm(range(len(scanned_param_values[0]))):
+    for param_value_index in range_of_scan:
         section, param = scanned_param_name[0].split('.')
         if section == 'InitParams':
             InitParams[param] = scanned_param_values[0][param_value_index]
@@ -69,25 +72,44 @@ def run_simulation(config_file_name):
         ev_full = EventBuffer(1)
         
         # Initialize simulation data function
-        Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
-        t = Dynamics['t']             # Start time (from initialized dynamics)
-        t_end = InitParams['t_end']   # End time (from the INI file)    
-
-        initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         frame_size = [SensorParams['height'], SensorParams['width']]
+        Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
+        
+        
+        # first frame is outside the loop
+        initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         previous_binary_image_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
+ 
+        # Store the target initial data
+        current_data = {
+            't': Dynamics['t'],
+            'i_azimuth': Dynamics['i_azimuth'],
+            'i_elevation': Dynamics['i_elevation'],
+            't_azimuth': Dynamics['t_azimuth'],
+            't_elevation': Dynamics['t_elevation'],
+            'imaging_los_speed': Dynamics['imaging_los_speed'],
+            'binary_target_mask': previous_binary_image_mask,
+            'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
+            'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+            # 'x': ev.x,
+            # 'y': ev.y,
+            # 'p': ev.p,
+            # 'ts': ev.ts,
+            # 'l': l
+        }
         simulation_data = []
+        simulation_data.append(current_data)
+
         all_labels = []
         
         # Create the initial frame and setup simulation plots
-        if param_value_index == 0:
-            imgg1 = ax1.imshow(initial_frame,
-                               cmap='gray',
-                               animated=True)
-            ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
-            plt.colorbar(imgg1, ax=ax1)
-
-        im = initial_frame
+        if DO_PLOTS:
+            if param_value_index == 0:
+                imgg1 = ax1.imshow(initial_frame,
+                                   cmap='gray',
+                                   animated=True)
+                ax1.set_title(f'Pixel Frame at {1000 * 0:.2f} ms')
+                plt.colorbar(imgg1, ax=ax1)
 
         # Initialize DVS sensor
         dvs = DvsSensor("MySensor")
@@ -109,18 +131,18 @@ def run_simulation(config_file_name):
                        tdr=SensorParams['tau_dark'], 
                        q=1.602176634e-19)
         
-        dvs.init_image(im)
-        ea = SynchronousArbiter(0.1, 0, im.shape[0])
+        dvs.init_image(initial_frame)
+        ea = SynchronousArbiter(0.1, 0, initial_frame.shape[0])
         
         # Create the display for events
         render_timesurface = 1
         dt_us = InitParams['dt']*1e6
-        ed = EventDisplay("Events", frame_size[1], frame_size[0], dt_us, render_timesurface)
+        if DO_PLOTS:
+            ed = EventDisplay("Events", frame_size[1], frame_size[0], dt_us, render_timesurface)
 
         # Simulation loop
-        while t < t_end:
+        while Dynamics['t'] < InitParams['t_end']:
             
-            simulation_data.append({'t': t})
             # Create the camera pixel frame and target mask
             pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics,
                                                                            InitParams,
@@ -157,24 +179,23 @@ def run_simulation(config_file_name):
             
             # Store the pixel displacement in the current data
             current_data = {
+                't': Dynamics['t'],
                 'i_azimuth': Dynamics['i_azimuth'],
                 'i_elevation': Dynamics['i_elevation'],
                 't_azimuth': Dynamics['t_azimuth'],
                 't_elevation': Dynamics['t_elevation'],
                 'imaging_los_speed': Dynamics['imaging_los_speed'],
                 'binary_target_mask': binary_target_mask,
-                'dx/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
-                'dy/dt': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
-                'x': ev.x,
-                'y': ev.y,
-                'p': ev.p,
-                'ts': ev.ts,
-                'l': l
+                'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
+                'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+                # 'x': ev.x,
+                # 'y': ev.y,
+                # 'p': ev.p,
+                # 'ts': ev.ts,
+                # 'l': l
             }
-            simulation_data[-1].update(current_data)
-            
-            # simulation_data.append(current_data)
-            
+            simulation_data.append(current_data)
+                        
             # eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
             #                                      ('x', 'f8'),
             #                                      ('y', 'f8'),
@@ -235,7 +256,8 @@ def run_simulation(config_file_name):
             
             
             # Update EventDisplay with events
-            ed.update(ev, dt_us)
+            if DO_PLOTS:
+                ed.update(ev, dt_us)
             
             
             # Update initial frames to fit the new frames
@@ -243,28 +265,35 @@ def run_simulation(config_file_name):
             initial_target_frame = target_frame_norm
             
             # Plot the pixel frame
-            imgg1.set_array(pixel_frame)
-            ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
+            if DO_PLOTS:
+                imgg1.set_array(pixel_frame)
+                ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
 
-            # Plot the events in the second subplot
-            ax2.clear()
-            ax2.set_title("Event Display")
-            ax2.imshow(ed.get_image(), cmap='gray')
-            
-            # Update the figures
-            plt.pause(0.001)
+                # Plot the events in the second subplot
+                ax2.clear()
+                ax2.set_title("Event Display")
+                ax2.imshow(ed.get_image(), cmap='gray')
+                
+                # Update the figures
+                plt.pause(0.001)
 
         
-        ev_full.write("OUTPUT/events/ev_{}_{}_{}.dat".format(
+        simulation_data.append({'all_events': np.array(all_labels)})
+        if scanned_params:
+            ev_full.write("OUTPUT/events/ev_{}_{}_{}.dat".format(
                                                                InitParams['sim_name'],
                                                                param, 
                                                                scanned_param_values[0][param_value_index]))
-        simulation_data.append({'all_events': np.array(all_labels)})
-        scipy.io.savemat(f"OUTPUT/events/simdata_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}.mat", 
+            scipy.io.savemat(f"OUTPUT/events/simdata_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}.mat", 
+                         {"simulation_data": simulation_data})
+        else:
+            ev_full.write("OUTPUT/events/ev_{}.dat".format(InitParams['sim_name']))
+            scipy.io.savemat(f"OUTPUT/events/simdata_{InitParams['sim_name']}.mat", 
                          {"simulation_data": simulation_data})
 
-    plt.ioff()
-    plt.show()
+    if DO_PLOTS:
+        plt.ioff() 
+        plt.show()
 
 
 if __name__ == '__main__':
