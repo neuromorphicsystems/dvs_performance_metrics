@@ -1,4 +1,4 @@
-function events_aligned = align_Events(events,target_frame_mask,matrix_size,factor)
+function [events_aligned,filtered_inds] = align_Events(events,sim_meta_data,matrix_size)
 % events            = event data to align
 % target_frame_mask = meta data of line-of-sight angle changes
 % factor            = LOS angle to pixel shift factor (focal length)/(pixel pitch)
@@ -8,33 +8,31 @@ events_aligned_temp.y = zeros(1,length(events.y),'uint16');
 events_aligned_temp.t = events.t;
 events_aligned_temp.on = events.on;
 
-t_new = target_frame_mask{1}.t*1e6;
-ind_end = find(events.t>t_new,1);
-for k = 2:length(target_frame_mask)
+t_new = 0;
+offset_x_perv = 0;
+offset_y_perv = 0;
+ind_end = 0;
+
+for k = 1:(length(sim_meta_data)-1)
     t_old = t_new;
-    t_new = target_frame_mask{k}.t*1e6;
+    t_new = sim_meta_data{k}.t*1e6;
 
-    ind_start = ind_end; 
-    ind_end = find(events.t>t_new,1);
+    offset_x = sim_meta_data{k}.pixel_offset_x;
+    slope_x = (offset_x - offset_x_perv)/(t_new-t_old);
+    offset_y = sim_meta_data{k}.pixel_offset_y;
+    slope_y = (offset_y - offset_y_perv)/(t_new-t_old);
+    
+    ind_start = ind_end+1;
+    ind_end = find(events.t>=t_new,1)-1;
+    events_aligned_temp.x(ind_start:ind_end) = events.x(ind_start:ind_end) + round(offset_x_perv - slope_x*(events.t(ind_start:ind_end)-events.t(ind_start)));
+    events_aligned_temp.y(ind_start:ind_end) = events.y(ind_start:ind_end) + round(offset_y_perv - slope_y*(events.t(ind_start:ind_end)-events.t(ind_start)));
 
-    i_az0 = target_frame_mask{k-1}.i_azimuth;
-    i_az1 = target_frame_mask{k}.i_azimuth;
-    t_az0 = target_frame_mask{k-1}.t_azimuth;
-    t_az1 = target_frame_mask{k}.t_azimuth;
-    d_az = (i_az1-t_az1) - (i_az0-t_az0);
-
-    i_el0 = target_frame_mask{k-1}.i_elevation;
-    i_el1 = target_frame_mask{k}.i_elevation;
-    t_el0 = target_frame_mask{k-1}.t_elevation;
-    t_el1 = target_frame_mask{k}.t_elevation;
-    d_el = (i_el1-t_el1) - (i_el0-t_el0);
-
-    events_aligned_temp.x(ind_start:ind_end) = events.x(ind_start:ind_end) - uint16(round(factor*d_az*(events.t(ind_start:ind_end)-events.t(ind_start))));
-    events_aligned_temp.y(ind_start:ind_end) = events.y(ind_start:ind_end) - uint16(round(factor*d_el*(events.t(ind_start:ind_end)-events.t(ind_start))));
+    offset_x_perv = offset_x;
+    offset_y_perv = offset_y;
 end
 
-ind_outside = events_aligned_temp.x>0 & events_aligned_temp.x<=matrix_size(1) & events_aligned_temp.y>0 & events_aligned_temp.y<=matrix_size(2);
-events_aligned.x = events_aligned_temp.x(ind_outside);
-events_aligned.y = events_aligned_temp.y(ind_outside);
-events_aligned.t = events_aligned_temp.t(ind_outside);
-events_aligned.on = events_aligned_temp.on(ind_outside);
+filtered_inds = events_aligned_temp.x>0 & events_aligned_temp.x<=matrix_size(1) & events_aligned_temp.y>0 & events_aligned_temp.y<=matrix_size(2);
+events_aligned.x = events_aligned_temp.x(filtered_inds);
+events_aligned.y = events_aligned_temp.y(filtered_inds);
+events_aligned.t = events_aligned_temp.t(filtered_inds);
+events_aligned.on = events_aligned_temp.on(filtered_inds);

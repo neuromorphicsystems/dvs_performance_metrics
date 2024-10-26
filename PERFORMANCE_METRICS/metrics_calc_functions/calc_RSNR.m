@@ -9,7 +9,7 @@ RateImage_Sig_med = init_mat;
 RateImage_BG_med = init_mat;
 for xi =1:matrix_size(1)
     for yi=1:matrix_size(2)
-        if length(RateImage_Sig{xi,yi})>2
+        if ~isempty(RateImage_Sig{xi,yi})
             RateImage_Sig_med(xi,yi) = median(abs(RateImage_Sig{xi,yi}));
         end
         if ~isempty(RateImage_BG{xi,yi})
