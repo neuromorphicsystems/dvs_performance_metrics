@@ -26,6 +26,7 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
+SAVE_FRAMES = 1
 
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
@@ -33,11 +34,6 @@ bgnn = 0.3 # OFF event noise rate in events / pixel / s
 def run_simulation():    
     ini_file = 'config/simulation_config_1.ini'
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
-
-    plt.ion()    
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))  # Two subplots, one for pixel_frame, one for EventDisplay
-
-    # simulation_data = []
     
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
@@ -76,14 +72,7 @@ def run_simulation():
         previous_binary_image_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
         simulation_data = []
         all_labels = []
-        
-        # Create the initial frame and setup simulation plots
-        if param_value_index == 0:
-            imgg1 = ax1.imshow(initial_frame,
-                               cmap='gray',
-                               animated=True)
-            ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
-            plt.colorbar(imgg1, ax=ax1)
+    
 
         im = initial_frame
 
@@ -110,9 +99,21 @@ def run_simulation():
         dvs.init_image(im)
         ea = SynchronousArbiter(0.1, SensorParams['time'], im.shape[0])
         
+        if not os.path.exists(f"OUTPUT/events") and not os.path.exists(f"OUTPUT/masks"):
+            os.makedirs(f"OUTPUT/events", exist_ok=True)
+            os.makedirs(f"OUTPUT/masks", exist_ok=True)
+            
         # Create the display for events
-        render_timesurface = 1
-        ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
+        if SAVE_FRAMES:
+            render_timesurface = 1
+            ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
+            
+            if SAVE_FRAMES:
+                dirs = [
+                    "OUTPUT/only_signal","OUTPUT/only_background","OUTPUT/mask_overlay","OUTPUT/labeled_image"
+                ]
+                for dir in dirs:
+                    os.makedirs(dir, exist_ok=True)
 
         # Simulation loop
         while t < t_end:
@@ -170,87 +171,73 @@ def run_simulation():
             }
             simulation_data[-1].update(current_data)
             
-            # simulation_data.append(current_data)
             
-            # eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
-            #                                      ('x', 'f8'),
-            #                                      ('y', 'f8'),
-            #                                      ('p', 'f8')])
-            
-            # eventsT['t'] = ev.ts.astype(np.float64)
-            # eventsT['x'] = ev.x.astype(np.float64)
-            # eventsT['y'] = ev.y.astype(np.float64)
-            # eventsT['p'] = ev.p.astype(np.float64)
-            
-            # vx_velocity = np.zeros((len(eventsT["x"]), 1)) + 0.0 / 1e6
-            # vy_velocity = np.zeros((len(eventsT["y"]), 1)) + 0.0 / 1e6
-            
-            # cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
-            #                                                         binary_target_mask.shape[0]),
-            #                                                         eventsT,
-            #                                                         (0,0))
-            # warped_image_segmentation_raw = dvs_warping_package.render(cumulative_map_object,
-            #                                                            colormap_name="magma",
-            #                                                            gamma=lambda image: image ** (1 / 3))
-            
-            # combined_image, labeled_events = dvs_warping_package.overlay_and_label_events(warped_image_segmentation_raw,
-            #                                                                               binary_target_mask,
-            #                                                                               ev.x,
-            #                                                                               ev.y,
-            #                                                                               y_offset=0)
+            if SAVE_FRAMES:
+                eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
+                                                    ('x', 'f8'),
+                                                    ('y', 'f8'),
+                                                    ('p', 'f8')])
+                
+                eventsT['t'] = ev.ts.astype(np.float64)
+                eventsT['x'] = ev.x.astype(np.float64)
+                eventsT['y'] = ev.y.astype(np.float64)
+                eventsT['p'] = ev.p.astype(np.float64)
+                
+                vx_velocity = np.zeros((len(eventsT["x"]), 1)) + 0.0 / 1e6
+                vy_velocity = np.zeros((len(eventsT["y"]), 1)) + 0.0 / 1e6
+                
+                cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
+                                                                        binary_target_mask.shape[0]),
+                                                                        eventsT,
+                                                                        (0,0))
+                warped_image_segmentation_raw = dvs_warping_package.render(cumulative_map_object,
+                                                                        colormap_name="magma",
+                                                                        gamma=lambda image: image ** (1 / 3))
+                
+                combined_image, labeled_events = dvs_warping_package.overlay_and_label_events(warped_image_segmentation_raw,
+                                                                                            binary_target_mask,
+                                                                                            ev.x,
+                                                                                            ev.y,
+                                                                                            y_offset=0)
 
-            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
-            #                                                                                     binary_target_mask.shape[0]),
-            #                                                                                     eventsT,
-            #                                                                                     labeled_events.flatten().astype(np.int32),
-            #                                                                                     (vx_velocity.T,vy_velocity.T))
-            # warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
-            
-            
-            # only_sig = np.where(l==1)
-            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
-            #                                                                                     binary_target_mask.shape[0]),
-            #                                                                                     eventsT[only_sig],
-            #                                                                                     labeled_events[only_sig].flatten().astype(np.int32),
-            #                                                                                     (vx_velocity[only_sig].T,vy_velocity[only_sig].T))
-            # warped_image_only_signal    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
-            
-            
-            # only_bckg = np.where(l==0)
-            # cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
-            #                                                                                     binary_target_mask.shape[0]),
-            #                                                                                     eventsT[only_bckg],
-            #                                                                                     labeled_events[only_bckg].flatten().astype(np.int32),
-            #                                                                                     (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
-            # warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
-            
-            # warped_image_only_signal.save(f"OUTPUT/images/only_signal/{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_{t:.3f}.png")
-            # warped_image_only_bckg.save(f"OUTPUT/images/only_background/{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_{t:.3f}.png")
-            # combined_image.save(f"OUTPUT/images/combined_image_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_{t:.3f}.png")
-            # warped_image_segmentation_rgb_zero.save(f"OUTPUT/images/warped_image_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_{t:.3f}.png")
-            # # warped_image_segmentation_raw.save(f"OUTPUT/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_raw_{t:.3f}.png")
-            
-            
-            # Update EventDisplay with events
-            ed.update(ev, SensorParams['dt'])
-            
-            
-            # Update initial frames to fit the new frames
-            initial_frame = pixel_frame
-            initial_target_frame = target_frame_norm
-            
-            # Plot the pixel frame
-            imgg1.set_array(pixel_frame)
-            ax1.set_title(f'Pixel Frame at {1000 * t:.2f} ms')
-
-            # Plot the events in the second subplot
-            ax2.clear()
-            ax2.set_title("Event Display")
-            ax2.imshow(ed.get_image(), cmap='gray')
-            
-            # Update the figures
-            plt.pause(0.001)
-
+                cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                    binary_target_mask.shape[0]),
+                                                                                                    eventsT,
+                                                                                                    labeled_events.flatten().astype(np.int32),
+                                                                                                    (vx_velocity.T,vy_velocity.T))
+                warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+                
+                
+                only_sig = np.where(l==1)
+                cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                    binary_target_mask.shape[0]),
+                                                                                                    eventsT[only_sig],
+                                                                                                    labeled_events[only_sig].flatten().astype(np.int32),
+                                                                                                    (vx_velocity[only_sig].T,vy_velocity[only_sig].T))
+                warped_image_only_signal    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+                
+                
+                only_bckg = np.where(l==0)
+                cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                    binary_target_mask.shape[0]),
+                                                                                                    eventsT[only_bckg],
+                                                                                                    labeled_events[only_bckg].flatten().astype(np.int32),
+                                                                                                    (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
+                warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
+                
+                 
+                warped_image_only_signal.save(f"OUTPUT/only_signal/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+                warped_image_only_bckg.save(f"OUTPUT/only_background/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+                combined_image.save(f"OUTPUT/mask_overlay/TargetParams_{TargetParams['target_radius']}_combined_image_{t:.3f}.png")
+                warped_image_segmentation_rgb_zero.save(f"OUTPUT/labeled_image/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")                
+                
+                # Update EventDisplay with events
+                ed.update(ev, SensorParams['dt'])
+                
+                # Update initial frames to fit the new frames
+                initial_frame = pixel_frame
+                initial_target_frame = target_frame_norm
+                
         
         ev_full.write("OUTPUT/events/ev_{}_{}_{}.dat".format(
                                                                InitParams['sim_name'],

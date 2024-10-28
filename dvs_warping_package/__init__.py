@@ -539,70 +539,70 @@ def accumulate(
         offset=0
     )
 
-def accumulate_timesurface(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-    tau: int,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate_timesurface(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-            tau,
-        ),
-        offset=0
-    )
+# def accumulate_timesurface(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+#     tau: int,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate_timesurface(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             velocity[0],
+#             velocity[1],
+#             tau,
+#         ),
+#         offset=0
+#     )
 
-def accumulate_pixel_map(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-):
-    accumulated_pixels, event_indices_list = dvs_warping_package_extension.accumulate_pixel_map(  # type: ignore
-        sensor_size[0],
-        sensor_size[1],
-        events["t"].astype("<f8"),
-        events["x"].astype("<f8"),
-        events["y"].astype("<f8"),
-        velocity[0],
-        velocity[1],
-    )
+# def accumulate_pixel_map(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+# ):
+#     accumulated_pixels, event_indices_list = dvs_warping_package_extension.accumulate_pixel_map(  # type: ignore
+#         sensor_size[0],
+#         sensor_size[1],
+#         events["t"].astype("<f8"),
+#         events["x"].astype("<f8"),
+#         events["y"].astype("<f8"),
+#         velocity[0],
+#         velocity[1],
+#     )
     
-    # Convert event_indices_list to a numpy array if needed
-    event_indices_np = numpy.array(event_indices_list, dtype=object)
+#     # Convert event_indices_list to a numpy array if needed
+#     event_indices_np = numpy.array(event_indices_list, dtype=object)
 
-    return {
-        'cumulative_map': CumulativeMap(
-            pixels=accumulated_pixels,
-            offset=0
-        ),
-        'event_indices': event_indices_np
-    }
+#     return {
+#         'cumulative_map': CumulativeMap(
+#             pixels=accumulated_pixels,
+#             offset=0
+#         ),
+#         'event_indices': event_indices_np
+#     }
 
 
-def accumulate_cnt(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate_cnt(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-        ),
-        offset=0
-    )
+# def accumulate_cnt(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate_cnt(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             velocity[0],
+#             velocity[1],
+#         ),
+#         offset=0
+#     )
 
 def accumulate_cnt_rgb(
     sensor_size: tuple[int, int],
@@ -4638,63 +4638,63 @@ def find_best_velocity_iteratively(sensor_size: Tuple[int, int], events: numpy.n
 
 
 
-def accumulate4D(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    linear_vel: tuple[float, float],
-    angular_vel: tuple[float, float, float],
-    zoom: float,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate4D(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            linear_vel[0],
-            linear_vel[1],
-            angular_vel[0],
-            angular_vel[1],
-            angular_vel[2],
-            zoom,
-        ),
-        offset=0
-    )
+# def accumulate4D(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     linear_vel: tuple[float, float],
+#     angular_vel: tuple[float, float, float],
+#     zoom: float,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate4D(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             linear_vel[0],
+#             linear_vel[1],
+#             angular_vel[0],
+#             angular_vel[1],
+#             angular_vel[2],
+#             zoom,
+#         ),
+#         offset=0
+#     )
 
-def accumulate4D_cnt(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    linear_vel: numpy.ndarray,
-    angular_vel: numpy.ndarray,
-    zoom: numpy.ndarray,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate4D_cnt(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            linear_vel[0],
-            linear_vel[1],
-            angular_vel[0],
-            angular_vel[1],
-            angular_vel[2],
-            zoom,
-        ),
-        offset=0
-    )
+# def accumulate4D_cnt(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     linear_vel: numpy.ndarray,
+#     angular_vel: numpy.ndarray,
+#     zoom: numpy.ndarray,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate4D_cnt(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             linear_vel[0],
+#             linear_vel[1],
+#             angular_vel[0],
+#             angular_vel[1],
+#             angular_vel[2],
+#             zoom,
+#         ),
+#         offset=0
+#     )
 
 
-def geometric_transformation(
-        resolution: float, 
-        rotation_angle: float
-):
-    rotated_particles = dvs_warping_package_extension.geometricTransformation(
-        resolution, 
-        rotation_angle)
-    return rotated_particles
+# def geometric_transformation(
+#         resolution: float, 
+#         rotation_angle: float
+# ):
+#     rotated_particles = dvs_warping_package_extension.geometricTransformation(
+#         resolution, 
+#         rotation_angle)
+#     return rotated_particles
 
 
 def render(
@@ -5831,22 +5831,22 @@ def intensity_variance(
     )
 
 
-def intensity_variance_ts(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-    tau: int,
-):
-    return dvs_warping_package_extension.intensity_variance_ts(  # type: ignore
-        sensor_size[0],
-        sensor_size[1],
-        events["t"].astype("<f8"),
-        events["x"].astype("<f8"),
-        events["y"].astype("<f8"),
-        velocity[0],
-        velocity[1],
-        tau,
-    )
+# def intensity_variance_ts(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+#     tau: int,
+# ):
+#     return dvs_warping_package_extension.intensity_variance_ts(  # type: ignore
+#         sensor_size[0],
+#         sensor_size[1],
+#         events["t"].astype("<f8"),
+#         events["x"].astype("<f8"),
+#         events["y"].astype("<f8"),
+#         velocity[0],
+#         velocity[1],
+#         tau,
+#     )
 
 @dataclasses.dataclass
 class CumulativeMap:
@@ -5995,40 +5995,40 @@ class CumulativeMap:
 #     return None
 
 
-def generate_3Dlandscape(events: numpy.ndarray,
-                       sensor_size: Tuple[int, int],
-                       linear_velocity: numpy.ndarray, 
-                       angular_velocity: numpy.ndarray, 
-                       scale: numpy.ndarray, 
-                       tmax: float,
-                       savefileto: str) -> None:
-    nvel = len(angular_velocity)
-    trans=0
-    rot=0
-    variance_loss = numpy.zeros((nvel*nvel,nvel))
-    for iVelz in tqdm(range(nvel)):
-        wx              = 0.0 / 1e6
-        wy              = 0.0 / 1e6
-        wz              = (angular_velocity[iVelz] / tmax) / 1e6
-        for iVelx in range(nvel):
-            vx          = linear_velocity[iVelx] / 1e6
-            for iVely in range(nvel):
-                vy          = linear_velocity[iVely] / 1e6
-                warped_image = accumulate4D(sensor_size=sensor_size,
-                                            events=events,
-                                            linear_vel=(vx,vy),
-                                            angular_vel=(wx,wy,wz),
-                                            zoom=0)
-                var = variance_loss_calculator(warped_image.pixels)
-                variance_loss[trans,rot] = var
-                trans+=1
-        rot+=1
-        trans=0
+# def generate_3Dlandscape(events: numpy.ndarray,
+#                        sensor_size: Tuple[int, int],
+#                        linear_velocity: numpy.ndarray, 
+#                        angular_velocity: numpy.ndarray, 
+#                        scale: numpy.ndarray, 
+#                        tmax: float,
+#                        savefileto: str) -> None:
+#     nvel = len(angular_velocity)
+#     trans=0
+#     rot=0
+#     variance_loss = numpy.zeros((nvel*nvel,nvel))
+#     for iVelz in tqdm(range(nvel)):
+#         wx              = 0.0 / 1e6
+#         wy              = 0.0 / 1e6
+#         wz              = (angular_velocity[iVelz] / tmax) / 1e6
+#         for iVelx in range(nvel):
+#             vx          = linear_velocity[iVelx] / 1e6
+#             for iVely in range(nvel):
+#                 vy          = linear_velocity[iVely] / 1e6
+#                 warped_image = accumulate4D(sensor_size=sensor_size,
+#                                             events=events,
+#                                             linear_vel=(vx,vy),
+#                                             angular_vel=(wx,wy,wz),
+#                                             zoom=0)
+#                 var = variance_loss_calculator(warped_image.pixels)
+#                 variance_loss[trans,rot] = var
+#                 trans+=1
+#         rot+=1
+#         trans=0
     
-    reshaped_variance_loss = variance_loss.reshape(nvel, nvel, nvel)
-    sio.savemat(savefileto+"reshaped_variance_loss.mat",{'reshaped_variance_loss':numpy.asarray(reshaped_variance_loss)})
-    render_3d(reshaped_variance_loss)
-    return None
+#     reshaped_variance_loss = variance_loss.reshape(nvel, nvel, nvel)
+#     sio.savemat(savefileto+"reshaped_variance_loss.mat",{'reshaped_variance_loss':numpy.asarray(reshaped_variance_loss)})
+#     render_3d(reshaped_variance_loss)
+#     return None
 
 
 def random_velocity(opt_range):
