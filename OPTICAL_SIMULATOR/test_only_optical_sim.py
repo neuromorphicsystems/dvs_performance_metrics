@@ -73,7 +73,9 @@ def run_simulation():
 
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         frame_size = [SensorParams['height'], SensorParams['width']]
-        previous_binary_image_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
+        initial_binary_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
+        maskMemorySize = int(round(1e-6 * SensorParams['lat']/InitParams['dt']))
+        binary_target_mask_memory = np.repeat(initial_binary_mask[:,:,np.newaxis],maskMemorySize,axis=2)
         simulation_data = []
         all_labels = []
         
@@ -113,7 +115,7 @@ def run_simulation():
         # Create the display for events
         render_timesurface = 1
         ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
-
+        counter = 0
         # Simulation loop
         while t < t_end:
             
@@ -128,10 +130,9 @@ def run_simulation():
                                                                            SensorBiases,
                                                                            SensorParams)
             
-            ## TODO
-            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm)
-            binary_target_mask = np.logical_and(binary_image_mask,previous_binary_image_mask)
-            previous_binary_image_mask = binary_image_mask
+
+            binary_target_mask_memory[:,:, counter % maskMemorySize] = dvs_warping_package.create_binary_mask(target_frame_norm)
+            binary_target_mask = np.all(binary_target_mask_memory, axis = 2)
 
             t = Dynamics['t']
             
@@ -250,7 +251,8 @@ def run_simulation():
             
             # Update the figures
             plt.pause(0.001)
-
+            
+            counter =+ 1
         
         ev_full.write("OUTPUT/events/ev_{}_{}_{}.dat".format(
                                                                InitParams['sim_name'],

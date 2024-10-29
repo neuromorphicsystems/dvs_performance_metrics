@@ -78,8 +78,11 @@ def run_simulation(config_file_name):
         
         # first frame is outside the loop
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
-        previous_binary_image_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
- 
+        initial_binary_mask = dvs_warping_package.create_binary_mask(initial_target_frame)
+        maskMemorySize = int(round(SensorParams['tau_sf']/InitParams['dt']/4))
+        binary_target_mask_memory = np.zeros([np.size(initial_binary_mask,0),np.size(initial_binary_mask,1),maskMemorySize])
+        binary_target_mask_memory[:,:,0] = initial_binary_mask
+
         # Store the target initial data
         current_data = {
             't': Dynamics['t'],
@@ -88,7 +91,7 @@ def run_simulation(config_file_name):
             't_azimuth': Dynamics['t_azimuth'],
             't_elevation': Dynamics['t_elevation'],
             'imaging_los_speed': Dynamics['imaging_los_speed'],
-            'binary_target_mask': previous_binary_image_mask,
+            'binary_target_mask': initial_binary_mask,
             'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
             'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
             # 'x': ev.x,
@@ -115,10 +118,10 @@ def run_simulation(config_file_name):
         dvs = DvsSensor("MySensor")
         dvs.initCamera(frame_size[1], 
                        frame_size[0],
-                       lat=SensorParams['lat'], 
-                       jit=SensorParams['latency_jitter'], 
+                       lat=SensorParams['lat']*1e6, 
+                       jit=SensorParams['latency_jitter']*1e6, 
                        ref=SensorBiases['refr'],
-                       tau=SensorParams['tau_dark'], 
+                       tau=SensorParams['tau_dark']*1e6, 
                        th_pos=SensorBiases['diff_on'], 
                        th_neg=SensorBiases['diff_off'], 
                        th_noise=SensorParams['threshold_noise'],
@@ -127,8 +130,8 @@ def run_simulation(config_file_name):
                        pp=SensorParams['pixel_pitch'], 
                        qe=SensorParams['QE'], 
                        ff=SensorParams['fill_factor'],
-                       tsf=SensorParams['tau_sf'], 
-                       tdr=SensorParams['tau_dark'], 
+                       tsf=SensorParams['tau_sf']*1e6, 
+                       tdr=SensorParams['tau_dark']*1e6, 
                        q=1.602176634e-19)
         
         dvs.init_image(initial_frame)
@@ -139,8 +142,9 @@ def run_simulation(config_file_name):
         dt_us = InitParams['dt']*1e6
         if DO_PLOTS:
             ed = EventDisplay("Events", frame_size[1], frame_size[0], dt_us, render_timesurface)
-
+    
         # Simulation loop
+        counter = 1
         while Dynamics['t'] < InitParams['t_end']:
             
             # Create the camera pixel frame and target mask
@@ -153,10 +157,8 @@ def run_simulation(config_file_name):
                                                                            SensorBiases,
                                                                            SensorParams)
             
-            ## TODO
-            binary_image_mask = dvs_warping_package.create_binary_mask(target_frame_norm)
-            binary_target_mask = np.logical_and(binary_image_mask,previous_binary_image_mask)
-            previous_binary_image_mask = binary_image_mask
+            binary_target_mask_memory[:,:, counter % maskMemorySize] = dvs_warping_package.create_binary_mask(target_frame_norm)
+            binary_target_mask = np.any(binary_target_mask_memory, axis = 2)
 
             t = Dynamics['t']
             
@@ -277,6 +279,7 @@ def run_simulation(config_file_name):
                 # Update the figures
                 plt.pause(0.001)
 
+            counter += 1
         
         simulation_data.append({'all_events': np.array(all_labels)})
         if scanned_params:

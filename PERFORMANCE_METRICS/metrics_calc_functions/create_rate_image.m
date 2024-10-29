@@ -5,6 +5,7 @@ function [all_rate_stack,signal_rate_stack,bg_rate_stack] = create_rate_image(ev
 init_mat = zeros(matrix_size(1),matrix_size(2));
 temp_last_t = init_mat;
 temp_last_p = init_mat;
+temp_last_count = init_mat;
 all_rate_stack = cell(matrix_size(1),matrix_size(2));
 
 if nargin>2
