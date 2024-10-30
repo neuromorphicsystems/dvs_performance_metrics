@@ -1,0 +1,9 @@
+OUTPUT/*
+build
+*__pycache__
+*.egg-info
+*.mex*
+.venv
+*.so
+*.asv
+*.bak
