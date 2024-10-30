@@ -460,7 +460,7 @@ def read_ini_file(ini_file):
             'threshold_noise': get_clean_value(config['ManualSensorParams']['threshold_noise'], float),
             'latency_jitter': get_clean_value(config['ManualSensorParams']['latency_jitter'], float),
             'lat': get_clean_value(config['ManualSensorParams']['lat'], float),
-            'I_dark': get_clean_value(config['SensorParams']['I_dark'], float)
+            'I_dark': get_clean_value(config['ManualSensorParams']['I_dark'], float)
             }
 
     scanned_params = {}
