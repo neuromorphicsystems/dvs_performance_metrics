@@ -5,9 +5,9 @@ import sys
 python_executable = r'C:\Users\30067913\Anaconda3\envs\dvs_performance_metric\python.exe'
 
 # Loop through simulations
-for sim in range(1, 4):
+for sim in range(2, 3):
     # Construct the argument as in MATLAB (e.g., T1_1, T1_2, ...)
-    arg = f'T1_{sim}'
+    arg = f'T12_{sim}'
 
     # Run the Python script with the specific argument
     subprocess.run([python_executable, 'run_simulation.py', arg], check=True)

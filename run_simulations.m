@@ -21,14 +21,16 @@ addpath("PERFORMANCE_METRICS\metrics_calc_functions\")
 file_list = dir("OUTPUT\events\simdata_T1_*.mat");
 
 PSF_type = {'sharp','slightblur','blurred'};
-val = 0:2:16;
+% val = 0:2:16;
+val = 0:1:8;
 % val = 3:3:33;
-matrix_size = [1280,720];
+matrix_size = [640,480];%[1280,720];
 BG = "constBG";
-for psft = 1%:3
+for psft = 1
     for vi = 1:length(val)
-        load(['OUTPUT\events\simdata_T1_',BG{1},'_',PSF_type{psft},'_t_velocity_',num2str(val(vi)),'.0.mat']);
+        % load(['OUTPUT\events\simdata_T1_',BG{1},'_',PSF_type{psft},'_t_velocity_',num2str(val(vi)),'.0.mat']);
         % load(['OUTPUT\events\simdata_T1_',BG{1},'_',PSF_type{psft},'_Jitter_speed_',num2str(val(vi)),'.0.mat']);
+        load(['OUTPUT\events\simdata_T11_db_m1_t_velocity_',num2str(val(vi)),'.0.mat']);
         all_events.x = simulation_data{1,end}.all_events(:,1)+1;
         all_events.y = simulation_data{1,end}.all_events(:,2)+1;
         all_events.t = simulation_data{1,end}.all_events(:,4);
@@ -42,18 +44,22 @@ for psft = 1%:3
         all_events.on = all_events.on(~ind_to_remove);
         sig_ind = sig_ind(~ind_to_remove);
 
-        [all_rate_stack,signal_rate_stack,bg_rate_stack] = create_rate_image(all_events,matrix_size,sig_ind);
+        [all_rate_stack,signal_rate_stack,bg_rate_stack,all_ts_stack] = create_rate_image(all_events,matrix_size,sig_ind);
         all_event_count = cellfun(@length,all_rate_stack);
         Signal_event_count = cellfun(@length,signal_rate_stack);
         Bg_event_count = cellfun(@length,bg_rate_stack);
         
-        % bg.x = all_events.x(~sig_ind);
-        % bg.y = all_events.y(~sig_ind);
-        % bg.t = all_events.t(~sig_ind);
-        % plot3(all_events.x(sig_ind==1),all_events.y(sig_ind==1),all_events.t(sig_ind==1),'r.','MarkerSize',0.2); hold on
-        % plot3(bg.x(1:10:end),bg.y(1:10:end),bg.t(1:10:end),'g.','MarkerSize',0.01);
-        
+        bg.x = all_events.x(~sig_ind);
+        bg.y = all_events.y(~sig_ind);
+        bg.t = all_events.t(~sig_ind);
+        figure;
+        plot3(all_events.x(sig_ind==1),all_events.y(sig_ind==1),all_events.t(sig_ind==1),'r.','MarkerSize',0.2); hold on
+        plot3(bg.x(1:10:end),bg.y(1:10:end),bg.t(1:10:end),'g.','MarkerSize',0.01);
+        % 
 
+        figure;
+        plot(all_ts_stack{214,241},all_rate_stack{214,241}); hold on;
+        plot(all_ts_stack{379,84},all_rate_stack{379,84});
         % sig_events.x = simulation_data{1,end}.all_events(sig_ind==1,1);
         % sig_events.y = simulation_data{1,end}.all_events(sig_ind==1,2);
         % sig_events.t = simulation_data{1,end}.all_events(sig_ind==1,4);
@@ -96,5 +102,6 @@ for psft = 1%:3
 end
 
 figure;
-plot(val-15,RSNR); hold on
-plot(val-15,Al_RSNR); 
+plot(val-max(val)/2,RSNR); hold on
+plot(val-max(val)/2,Al_RSNR); legend('not aligned RateSNR','aligned RateSNR');
+

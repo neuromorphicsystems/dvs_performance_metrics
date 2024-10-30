@@ -28,13 +28,14 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-DO_PLOTS = 0
+DO_PLOTS = 1
 bgnp = 0.8 # ON event noise rate in events / pixel / s
 bgnn = 0.8 # OFF event noise rate in events / pixel / s
 
 def run_simulation(config_file_name):    
     ini_file = f"config/{config_file_name}.ini"
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
+    os.makedirs(f"OUTPUT/{config_file_name}", exist_ok=True)
 
     if DO_PLOTS:
         plt.ion()    
@@ -126,7 +127,7 @@ def run_simulation(config_file_name):
                        th_neg=SensorBiases['diff_off'], 
                        th_noise=SensorParams['threshold_noise'],
                        bgnp=bgnp, bgnn=bgnn, 
-                       Idr=5.5e-15,
+                       Idr=SensorBiases['I_dark'],
                        pp=SensorParams['pixel_pitch'], 
                        qe=SensorParams['QE'], 
                        ff=SensorParams['fill_factor'],
@@ -283,15 +284,15 @@ def run_simulation(config_file_name):
         
         simulation_data.append({'all_events': np.array(all_labels)})
         if scanned_params:
-            ev_full.write("OUTPUT/events/ev_{}_{}_{}.dat".format(
-                                                               InitParams['sim_name'],
-                                                               param, 
-                                                               scanned_param_values[0][param_value_index]))
-            scipy.io.savemat(f"OUTPUT/events/simdata_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}.mat", 
+            ev_full.write("OUTPUT/{}/ev_{}_{}_{}.dat".format(config_file_name,
+                                                            InitParams['sim_name'],
+                                                            param, 
+                                                            scanned_param_values[0][param_value_index]))
+            scipy.io.savemat(f"OUTPUT/{config_file_name}/simdata_{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}.mat", 
                          {"simulation_data": simulation_data})
         else:
-            ev_full.write("OUTPUT/events/ev_{}.dat".format(InitParams['sim_name']))
-            scipy.io.savemat(f"OUTPUT/events/simdata_{InitParams['sim_name']}.mat", 
+            ev_full.write("OUTPUT/{}/ev_{}.dat".format(config_file_name,InitParams['sim_name']))
+            scipy.io.savemat(f"OUTPUT/{config_file_name}/simdata_{InitParams['sim_name']}.mat", 
                          {"simulation_data": simulation_data})
 
     if DO_PLOTS:

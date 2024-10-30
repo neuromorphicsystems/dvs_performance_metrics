@@ -304,7 +304,7 @@ def create_binary_mask(target_frame_norm):
     max_threshold = numpy.max(target_frame_norm)/10
     
     # Create a binary mask based on the maximum threshold
-    binary_mask = (target_frame_norm >= max_threshold).astype(bool)
+    binary_mask = (target_frame_norm > max_threshold).astype(bool)
 
     # # Find the centroid of the PSF using weighted average of pixel positions
     # y_coords, x_coords = numpy.indices(target_frame_norm.shape)
