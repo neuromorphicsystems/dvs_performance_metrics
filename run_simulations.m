@@ -18,7 +18,7 @@ end
 addpath("PERFORMANCE_METRICS\metrics_calc_functions\")
 % addpath("..\event_stream\matlab\")
 
-file_list = dir("OUTPUT\events\simdata_T1_*.mat");
+file_list = dir("OUTPUT\T11_1\simdata_T1_*.mat");
 
 PSF_type = {'sharp','slightblur','blurred'};
 % val = 0:2:16;
@@ -30,7 +30,7 @@ for psft = 1
     for vi = 1:length(val)
         % load(['OUTPUT\events\simdata_T1_',BG{1},'_',PSF_type{psft},'_t_velocity_',num2str(val(vi)),'.0.mat']);
         % load(['OUTPUT\events\simdata_T1_',BG{1},'_',PSF_type{psft},'_Jitter_speed_',num2str(val(vi)),'.0.mat']);
-        load(['OUTPUT\events\simdata_T11_db_m1_t_velocity_',num2str(val(vi)),'.0.mat']);
+        load(['OUTPUT\T11_1\simdata_T11_db_m1_t_velocity_',num2str(val(vi)),'.0.mat']);
         all_events.x = simulation_data{1,end}.all_events(:,1)+1;
         all_events.y = simulation_data{1,end}.all_events(:,2)+1;
         all_events.t = simulation_data{1,end}.all_events(:,4);
@@ -44,8 +44,8 @@ for psft = 1
         all_events.on = all_events.on(~ind_to_remove);
         sig_ind = sig_ind(~ind_to_remove);
 
-        [all_rate_stack,signal_rate_stack,bg_rate_stack,all_ts_stack] = create_rate_image(all_events,matrix_size,sig_ind);
-        all_event_count = cellfun(@length,all_rate_stack);
+        [all_rate_stack,signal_rate_stack,bg_rate_stack] = create_rate_image(all_events,matrix_size,[],sig_ind);
+        all_event_count = cellfun(@length,all_rate_stack(:,:,1));
         Signal_event_count = cellfun(@length,signal_rate_stack);
         Bg_event_count = cellfun(@length,bg_rate_stack);
         
@@ -57,9 +57,9 @@ for psft = 1
         plot3(bg.x(1:10:end),bg.y(1:10:end),bg.t(1:10:end),'g.','MarkerSize',0.01);
         % 
 
-        figure;
-        plot(all_ts_stack{214,241},all_rate_stack{214,241}); hold on;
-        plot(all_ts_stack{379,84},all_rate_stack{379,84});
+        % figure;
+        % plot(all_ts_stack{214,241},all_rate_stack{214,241}); hold on;
+        % plot(all_ts_stack{379,84},all_rate_stack{379,84});
         % sig_events.x = simulation_data{1,end}.all_events(sig_ind==1,1);
         % sig_events.y = simulation_data{1,end}.all_events(sig_ind==1,2);
         % sig_events.t = simulation_data{1,end}.all_events(sig_ind==1,4);
@@ -87,7 +87,7 @@ for psft = 1
 
         [all_events_aligned,filtered_inds] = align_Events(all_events,simulation_data,matrix_size);
         sig_aligned_ind = sig_ind(filtered_inds);
-        [all_rate_aligned_stack,signal_rate_aligned_stack,bg_rate_aligned_stack] = create_rate_image(all_events_aligned,matrix_size,sig_aligned_ind);
+        [all_rate_aligned_stack,signal_rate_aligned_stack,bg_rate_aligned_stack] = create_rate_image(all_events_aligned,matrix_size,[],sig_aligned_ind);
 
         [Al_RSNR(psft,vi), RateImage_Sig_aligned_med, RateImage_BG_aligned_med]= calc_RSNR(signal_rate_aligned_stack,bg_rate_aligned_stack,matrix_size);
         disp(['aligned RSNR: ', num2str(Al_RSNR(psft,vi))])
