@@ -25,7 +25,7 @@ from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
 SAVE_FRAMES = 0
-EPOCH = 10
+EPOCH       = 1 #how many time you wanna run the same experiment
 
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
@@ -69,11 +69,8 @@ def run_simulation():
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         frame_size = [SensorParams['height'], SensorParams['width']]
         
-        simulation_data = []
-        final_events = []
-        
-        all_events = []
-    
+        simulation_data  = []
+        final_events     = []    
 
         im = initial_frame
 
@@ -141,13 +138,13 @@ def run_simulation():
                 # per event labelling based on the binary mask
                 l = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
                 
-                event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('ts', 'f4'), ('l', 'i4')])
+                event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('t', 'f4'), ('l', 'i4')])
                 events_array = np.zeros(len(ev.x), dtype=event_dtype)
                 events_array['x']  = ev.x.flatten()
                 events_array['y']  = ev.y.flatten()
                 events_array['p']  = ev.p.flatten()
-                events_array['ts'] = ev.ts.flatten()
-                events_array['l']  = np.array(l).flatten()
+                events_array['t'] = ev.ts.flatten()
+                events_array['l']  = l
                 
                 final_events.extend(events_array.tolist())
                 
@@ -237,11 +234,13 @@ def run_simulation():
                     initial_target_frame = target_frame_norm
             
             output_path = "/media/samiarja/VERBATIM HD/performance_metric/" # OUTPUT/
-            simulation_data.append({'all_events': np.array(final_events)})  
+            
+            final_events_array = np.array(final_events)
+            simulation_data.append({'all_events': final_events_array})  
             base_filename = f"epoch_{ep}_{TargetParams['target_radius']}_{SensorParams['lat']}_{SensorParams['jit']}_{SensorBiases['diff_on']}_{SensorBiases['diff_off']}_{SensorParams['threshold_noise']}"
             
             dvs_warping_package.save_to_es(final_events, f"{output_path}/events/ev_{base_filename}.es")
-            np.savetxt(f"{output_path}/labels/ev_{base_filename}.txt", np.array(final_events)[:,-1], fmt='%d')
+            np.savetxt(f"{output_path}/labels/ev_{base_filename}.txt", final_events_array, fmt='%d')
             
             # ev_full.write(f"OUTPUT/events/ev_{base_filename}.dat")
             # savemat(f"OUTPUT/masks/simulation_data_target_radius_{TargetParams['target_radius']}.mat", 
