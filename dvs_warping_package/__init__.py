@@ -304,32 +304,32 @@ def create_binary_mask(target_frame_norm):
     max_threshold = numpy.max(target_frame_norm)/10
     
     # Create a binary mask based on the maximum threshold
-    binary_mask = (target_frame_norm > max_threshold).astype(bool)
-
-    # # Find the centroid of the PSF using weighted average of pixel positions
-    # y_coords, x_coords = numpy.indices(target_frame_norm.shape)
-    # x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
-    # y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    binary_mask = (target_frame_norm > max_threshold).astype(numpy.uint8)
     
-    # # Calculate the original PSF radius (distance from center to the edge of the binary object)
-    # psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    # Find the centroid of the PSF using weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
     
-    # # Bump the radius by the user-defined percentage
-    # # radius_high = psf_radius * (1 + radius_increase / 100)
-    # # radius_high = psf_radius * (1 + 20 / psf_radius)
-    # radius_high = psf_radius * 1 # an constant increase of 25%
+    # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    
+    # Bump the radius by the user-defined percentage
+    # radius_high = psf_radius * (1 + radius_increase / 100)
+    # radius_high = psf_radius * (1 + 20 / psf_radius)
+    radius_high = psf_radius * 1.25 # an constant increase of 25%
     
     
-    # # Create a new binary mask with the bumped radius, keeping the same center
-    # new_binary_image = numpy.zeros_like(target_frame_norm, dtype=bool)
+    # Create a new binary mask with the bumped radius, keeping the same center
+    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
     
-    # # Calculate the coordinates of the pixels within the new bumped radius
-    # for y in range(new_binary_image.shape[0]):
-    #     for x in range(new_binary_image.shape[1]):
-    #         if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
-    #             new_binary_image[y, x] = 1
+    # Calculate the coordinates of the pixels within the new bumped radius
+    for y in range(new_binary_image.shape[0]):
+        for x in range(new_binary_image.shape[1]):
+            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+                new_binary_image[y, x] = 1
     
-    return binary_mask #x_center, y_center, radius_high, new_binary_image
+    return new_binary_image #x_center, y_center, radius_high, new_binary_image
 
 
 def create_binary_mask_with_psf(target_frame_norm, psf_size, psf_multiplier, radius_increase):
@@ -603,6 +603,29 @@ def accumulate(
 #         ),
 #         offset=0
 #     )
+
+def save_to_es(final_events,base_filename):
+    import loris
+    events_array = numpy.array(final_events)
+    filtered_events = events_array[events_array[:, 3] != 0]
+    matX =  filtered_events[:,0]
+    matY =  filtered_events[:,1]
+    matP =  filtered_events[:,2]
+    matTs = filtered_events[:,3]
+
+    nEvents = matX.shape[0]
+    x = matX.reshape((nEvents, 1))
+    y = matY.reshape((nEvents, 1))
+    p = matP.reshape((nEvents, 1))
+    ts = matTs.reshape((nEvents, 1))/1e6
+
+    events = numpy.zeros((nEvents,4))
+    events = numpy.concatenate((ts,x, y, p),axis=1).reshape((nEvents,4))
+    finalArray = numpy.asarray(events)
+    finalArray[:,0] = finalArray[:,0] - finalArray[1,0]
+    loris.write_events_to_file(finalArray, base_filename, "txyp")
+
+    
 
 def accumulate_cnt_rgb(
     sensor_size: tuple[int, int],
@@ -5116,10 +5139,10 @@ def rgb_render_advanced(cumulative_map_object, l_values):
 def save_events_to_es(events, filename, ordering):
     import loris
     events_array = numpy.zeros((len(events), 4))
-    events_array[:, 0] = events['t']
+    events_array[:, 0] = events['ts']
     events_array[:, 1] = events['x']
     events_array[:, 2] = events['y']
-    events_array[:, 3] = events['on'].astype(int)
+    events_array[:, 3] = events['p'].astype(int)
     final_array = numpy.asarray(events_array)
     loris.write_events_to_file(final_array, filename, ordering)
     print("File: " + filename + " converted to .es")
