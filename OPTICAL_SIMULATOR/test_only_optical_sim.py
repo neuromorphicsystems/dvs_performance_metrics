@@ -106,17 +106,13 @@ def run_simulation():
         
         dvs.init_image(im)
         ea = SynchronousArbiter(0.1, SensorParams['time'], im.shape[0])
-        
-        if not os.path.exists(f"{output_path}/events") and not os.path.exists(f"{output_path}/masks"):
-            os.makedirs(f"{output_path}/events", exist_ok=True)
-            os.makedirs(f"{output_path}/masks", exist_ok=True)
             
         # Create the display for events
         if SAVE_FRAMES:
             render_timesurface = 1
             ed = EventDisplay("Events", frame_size[1], frame_size[0], SensorParams['dt'], render_timesurface)
             dirs = [
-                    f"{output_path}/labels",f"{output_path}/only_signal",f"{output_path}/only_background",f"{output_path}/mask_overlay",f"{output_path}/labeled_image",f"{output_path}/pk_sig",f"{output_path}/pk_noise"
+                    f"{output_path}/events", f"{output_path}/labels",f"{output_path}/only_signal_image",f"{output_path}/only_background_image",f"{output_path}/only_noise_image",f"{output_path}/mask_overlay",f"{output_path}/labeled_image"
             ]
             for dir in dirs:
                 os.makedirs(dir, exist_ok=True)                
@@ -129,31 +125,6 @@ def run_simulation():
                 if len(simulation_data) < blankFrames:
                     
                     ev, ev_signal, ev_noise, ground_truth = dvs.update(im, SensorParams['dt'])
-                    
-                    # eventsT = np.zeros(len(ev.x), dtype=[('t', 'f8'),
-                    #                                             ('x', 'f8'),
-                    #                                             ('y', 'f8'),
-                    #                                             ('p', 'f8')])
-                            
-                    # eventsT['t'] = ev.ts.astype(np.float64)
-                    # eventsT['x'] = ev.x.astype(np.float64)
-                    # eventsT['y'] = ev.y.astype(np.float64)
-                    # eventsT['p'] = ev.p.astype(np.float64)
-                    
-                    
-                    # cumulative_map_object = dvs_warping_package.accumulate((im.shape[1],
-                    #                                                                 im.shape[0]),
-                    #                                                                 eventsT,
-                    #                                                                 (0,0))
-                    # warped_image_signal = dvs_warping_package.render(cumulative_map_object,
-                    #                                                         colormap_name="magma",
-                    #                                                         gamma=lambda image: image ** (1 / 3))
-                    # warped_image_signal.save(f"{output_path}/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}_{c}.png")
-                    # c+=1
-                    
-                    
-                    # pixel_frame       = np.zeros((SensorParams['height'], SensorParams['width']))
-                    # pixel_frame = np.random.randint(0, 256, (SensorParams['height'], SensorParams['width']))
                     target_frame_norm = np.zeros((SensorParams['height'], SensorParams['width']))
                     binary_image_mask = np.zeros((SensorParams['height'], SensorParams['width']), dtype=np.uint8)
                 else:
@@ -183,6 +154,10 @@ def run_simulation():
                     # Per-event labeling based on the binary mask
                     l = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
                     
+                    # the labels are structure like this:
+                    # 0 for only noise
+                    # 1 for background
+                    # -1 for moving target
                     final_l = np.where(l == -1, -1, ground_truth)
 
                     event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('t', 'f4'), ('l', 'i4')])
@@ -244,7 +219,7 @@ def run_simulation():
                         vx_velocity_signal = np.zeros((len(events_signal["x"]), 1)) + 0.0 / 1e6
                         vy_velocity_signal = np.zeros((len(events_signal["y"]), 1)) + 0.0 / 1e6
                         
-                        ####
+                        
                         events_noise = np.zeros(len(ev_noise.x), dtype=[('t', 'f8'),
                                                             ('x', 'f8'),
                                                             ('y', 'f8'),
@@ -257,27 +232,6 @@ def run_simulation():
                         
                         vx_velocity_noise = np.zeros((len(events_noise["x"]), 1)) + 0.0 / 1e6
                         vy_velocity_noise = np.zeros((len(events_noise["y"]), 1)) + 0.0 / 1e6
-                        
-                        cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
-                                                                                binary_target_mask.shape[0]),
-                                                                                events_signal,
-                                                                                (0,0))
-                        warped_image_signal = dvs_warping_package.render(cumulative_map_object,
-                                                                                colormap_name="magma",
-                                                                                gamma=lambda image: image ** (1 / 3))
-                        warped_image_signal.save(f"{output_path}/pk_sig/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
-
-                        
-                        cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
-                                                                                binary_target_mask.shape[0]),
-                                                                                events_noise,
-                                                                                (0,0))
-                        warped_image_noise = dvs_warping_package.render(cumulative_map_object,
-                                                                                colormap_name="magma",
-                                                                                gamma=lambda image: image ** (1 / 3))
-                        warped_image_noise.save(f"{output_path}/pk_noise/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
-
-                        ###################
                         
                         cumulative_map_object = dvs_warping_package.accumulate((binary_target_mask.shape[1],
                                                                                 binary_target_mask.shape[0]),
@@ -301,7 +255,7 @@ def run_simulation():
                         warped_image_segmentation_rgb_zero    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
                         
                         
-                        only_sig = np.where(final_l==1)
+                        only_sig = np.where(final_l==-1)
                         cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
                                                                                                             binary_target_mask.shape[0]),
                                                                                                             eventsT[only_sig],
@@ -310,7 +264,7 @@ def run_simulation():
                         warped_image_only_signal    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
                         
                         
-                        only_bckg = np.where(final_l==0)
+                        only_bckg = np.where(final_l==1)
                         cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
                                                                                                             binary_target_mask.shape[0]),
                                                                                                             eventsT[only_bckg],
@@ -318,9 +272,19 @@ def run_simulation():
                                                                                                             (vx_velocity[only_bckg].T,vy_velocity[only_bckg].T))
                         warped_image_only_bckg    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
                         
+                        only_noise = np.where(final_l==0)
+                        cumulative_map_object_zero, seg_label_zero = dvs_warping_package.accumulate_cnt_rgb((binary_target_mask.shape[1],
+                                                                                                            binary_target_mask.shape[0]),
+                                                                                                            eventsT[only_noise],
+                                                                                                            final_l[only_noise].flatten().astype(np.int32),
+                                                                                                            (vx_velocity[only_noise].T,vy_velocity[only_noise].T))
+                        warped_image_only_noise    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
                         
-                        warped_image_only_signal.save(f"{output_path}/only_signal/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
-                        warped_image_only_bckg.save(f"{output_path}/only_background/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+                        
+                        
+                        warped_image_only_signal.save(f"{output_path}/only_signal_image/TargetParams_{TargetParams['target_radius']}_only_sig_{t:.3f}.png")
+                        warped_image_only_bckg.save(f"{output_path}/only_background_image/TargetParams_{TargetParams['target_radius']}_only_backg_{t:.3f}.png")
+                        warped_image_only_noise.save(f"{output_path}/only_noise_image/TargetParams_{TargetParams['target_radius']}_only_noise_{t:.3f}.png")
                         combined_image.save(f"{output_path}/mask_overlay/TargetParams_{TargetParams['target_radius']}_combined_image_{t:.3f}.png")
                         warped_image_segmentation_rgb_zero.save(f"{output_path}/labeled_image/TargetParams_{TargetParams['target_radius']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")                
                         
