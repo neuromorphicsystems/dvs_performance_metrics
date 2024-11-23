@@ -24,6 +24,9 @@ import configparser
 from astropy.convolution import AiryDisk2DKernel
 import matplotlib.pyplot as plt
 from PIL import Image
+import random 
+
+# random.seed(10)
 
 def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams):
     # Initialize optical parameters
@@ -203,11 +206,6 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
         else:
             Dynamics['imaging_los_speed'] = 0
  
-    # elif SceneParams['tracking_mode'] == 'none': #(3) no tracking
-        # nothing happens
-
-
-
     # Background pixel shift
     bg_pixel_shift_x = Dynamics['i_azimuth'] / OpticParams['IFOV']
     bg_pixel_shift_y = Dynamics['i_elevation'] / OpticParams['IFOV']
@@ -223,12 +221,11 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
     # Create target frame if within FOV
     if 0 < target_pix_loc[0] < width and 0 < target_pix_loc[1] < height:
         target_frame = make_target_frame(Dynamics['t'], target_pix_loc, width, height, multiplier, TargetParams)
-        target_frame_norm = target_frame / np.max(target_frame)
     else:
         target_frame = np.zeros_like(BG_frame)
-        target_frame_norm = target_frame
-
+    
     # Add BG and target to a single layer
+    target_frame_norm = target_frame / np.max(target_frame)
     if np.sum(target_frame) and obstruct:
         target_frame_norm_2 = target_frame_norm ** 2
         out_frame = BG_frame * (1 - target_frame_norm_2) + target_brightness * target_frame * target_frame_norm_2
@@ -253,21 +250,17 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
         InitParams['ind_to_trim'][0, 0]:InitParams['ind_to_trim'][0, 1],
         InitParams['ind_to_trim'][1, 0]:InitParams['ind_to_trim'][1, 1]
     ]
-    resized_target_frame_norm = target_frame_norm[
-        InitParams['ind_to_trim'][0, 0]:InitParams['ind_to_trim'][0, 1],
-        InitParams['ind_to_trim'][1, 0]:InitParams['ind_to_trim'][1, 1]
-    ]
+    
     # Update dynamics (mock update)
     Dynamics['t'] += InitParams['dt']
     
-
-    # target_frame_norm = np.array(target_frame_norm)
-    # target_height = SensorParams['height']
-    # target_width = SensorParams['width']
-    # normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
-    # target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
-    # resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
-    # resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
+    target_frame_norm = np.array(target_frame_norm)
+    target_height = SensorParams['height']
+    target_width = SensorParams['width']
+    normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
+    target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
+    resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
+    resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
 
     return pixel_frame, Dynamics, resized_target_frame_norm
 
@@ -445,8 +438,6 @@ def read_ini_file(ini_file):
             'QE': get_clean_value(config2['SensorParams']['QE'], float),
             'threshold_noise': get_clean_value(config2['SensorParams']['threshold_noise'], float),
             'latency_jitter': get_clean_value(config2['SensorParams']['latency_jitter'], float),
-            'lat': get_clean_value(config2['SensorParams']['lat'], float),
-            'I_dark': get_clean_value(config2['SensorParams']['I_dark'], float)
             }
     else:
         SensorParams = {
@@ -460,7 +451,12 @@ def read_ini_file(ini_file):
             'threshold_noise': get_clean_value(config['ManualSensorParams']['threshold_noise'], float),
             'latency_jitter': get_clean_value(config['ManualSensorParams']['latency_jitter'], float),
             'lat': get_clean_value(config['ManualSensorParams']['lat'], float),
-            'I_dark': get_clean_value(config['ManualSensorParams']['I_dark'], float)
+            'jit': get_clean_value(config['ManualSensorParams']['jit'], float),
+            'dt': get_clean_value(config['ManualSensorParams']['dt'], float),
+            'time': get_clean_value(config['ManualSensorParams']['time'], float),
+            'pixel_pitch': get_clean_value(config['ManualSensorParams']['pixel_pitch'], float),
+            'Idr': get_clean_value(config['ManualSensorParams']['Idr'], float),
+            'q': get_clean_value(config['ManualSensorParams']['q'], float),
             }
 
     scanned_params = {}
