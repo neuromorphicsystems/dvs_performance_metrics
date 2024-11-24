@@ -37,11 +37,13 @@ def run_simulation():
     if scanned_params:
         scanned_param_name = list(scanned_params.keys())
         scanned_param_values = list(scanned_params.values())
+        range_of_scan = range(len(scanned_param_values[0]))
     else:
-        scanned_param_name      = []
-        scanned_param_values    = [0]
+        scanned_param_name      = list(['.'])
+        scanned_param_values    = list()
+        range_of_scan = range(1)
 
-    for param_value_index in tqdm(range(len(scanned_param_values[0]))):
+    for param_value_index in range_of_scan:
         section, param = scanned_param_name[0].split('.')
         if section == 'InitParams':
             InitParams[param] = scanned_param_values[0][param_value_index]

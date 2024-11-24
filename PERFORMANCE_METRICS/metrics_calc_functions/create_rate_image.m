@@ -22,16 +22,18 @@ end
 t_int = double(events.t(1))*1e-6;
 
 if nargin>3
-    signal_rate_stack = cell(matrix_size(1),matrix_size(2));
-    bg_rate_stack = cell(matrix_size(1),matrix_size(2));
+    signal_rate_stack = cell(matrix_size(1),matrix_size(2),2);
+    bg_rate_stack = cell(matrix_size(1),matrix_size(2),2);
 else
     signal_rate_stack = [];
+    sig_ts = [];
     bg_rate_stack = [];
+    bg_ts = [];
 end
 
 ev_count=0;
 for k = 1:length(events.x)
-    if temp_last_p(events.x(k),events.y(k))
+    if temp_last_p(events.x(k),events.y(k)) && temp_last_t(events.x(k),events.y(k))<events.t(k)
         ev_count = ev_count+1;
         events_with_rate.r(ev_count) = temp_last_p(events.x(k),events.y(k))*(double(events.t(k)-temp_last_t(events.x(k),events.y(k)))*1e-6)^-1;
         temp_last_t(events.x(k),events.y(k)) = events.t(k);
@@ -44,9 +46,11 @@ for k = 1:length(events.x)
         all_ts{events.x(k),events.y(k)} = [all_ts{events.x(k),events.y(k)},double(events.t(k))*1e-6];
         if nargin>3
             if signal_indicies(k)
-                signal_rate_stack{events.x(k),events.y(k)} = [signal_rate_stack{events.x(k),events.y(k)},all_rates{events.x(k),events.y(k)}(end)];
+                signal_rate_stack{events.x(k),events.y(k),1} = [signal_rate_stack{events.x(k),events.y(k),1},all_rates{events.x(k),events.y(k)}(end)];
+                signal_rate_stack{events.x(k),events.y(k),2} = [signal_rate_stack{events.x(k),events.y(k),2},all_ts{events.x(k),events.y(k)}(end)];
             else
-                bg_rate_stack{events.x(k),events.y(k)} = [bg_rate_stack{events.x(k),events.y(k)},all_rates{events.x(k),events.y(k)}(end)];
+                bg_rate_stack{events.x(k),events.y(k),1} = [bg_rate_stack{events.x(k),events.y(k),1},all_rates{events.x(k),events.y(k)}(end)];
+                bg_rate_stack{events.x(k),events.y(k),2} = [bg_rate_stack{events.x(k),events.y(k),2},all_ts{events.x(k),events.y(k)}(end)];
             end
         end
     else
