@@ -4,6 +4,8 @@ import dvs_warping_package
 from event_buffer import EventBuffer
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import random
+import dvs_warping_package
 
 # Global variables
 # Log bin for the noise distributions
@@ -16,6 +18,7 @@ FREQ = bins.reshape(bins.shape[0] * bins.shape[1])
 # Noise generation methods
 NOISE_FREQ = 1     # Pixels have the same +/- noise frequency but with different phases
 NOISE_MEASURE = 2  # Pixels have a noise distribution measured in one lighting conditions
+# random.seed(10)
 
 
 class DvsSensor:
@@ -528,7 +531,9 @@ class DvsSensor:
         pk_end.merge(pk, pk_noise)
         pk_end.sort()
         
-        return pk_end
+        pk_end, pk, pk_noise, ground_truth_sorted = dvs_warping_package.merge_and_sort_events(pk, pk_noise)
+        
+        return pk_end, pk, pk_noise, ground_truth_sorted
 
 
 

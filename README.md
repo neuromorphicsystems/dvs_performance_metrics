@@ -15,21 +15,11 @@
 ## Installation
 
 ```sh
-conda create -n dvs_performance_metric python=3.9
-conda activate dvs_performance_metric
 git clone https://github.com/neuromorphicsystems/dvs_performance_metrics.git
 cd dvs_performance_metrics
+conda env create -f environment.yml
 python3 -m pip install -e .
-pip install tqdm
-pip install plotly
-pip install scikit-image
-pip install loris
-pip install PyYAML
-pip install opencv-python
-pip install scikit-learn
-pip install pillow
-pip install astropy
-pip install configparser
+
 ```
 
 # Content of each folder

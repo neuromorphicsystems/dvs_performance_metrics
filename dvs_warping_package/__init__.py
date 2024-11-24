@@ -58,6 +58,11 @@ from math import exp, isfinite
 from scipy.linalg import expm, lstsq
 from collections import deque
 import configparser
+import random
+import loris
+import sys
+sys.path.append("EVENT_SIMULATOR/src")
+from event_buffer import EventBuffer
 
 # # from torchvision.transforms.functional import gaussian_blur
 # # import cache
@@ -148,7 +153,7 @@ def label_events(binary_target_mask, x, y):
         if 0 <= x[i] < width and 0 <= y[i] < height:
             # If the corresponding pixel in the binary mask is 1, label the event as 1
             if binary_target_mask[y[i], x[i]] == 1:
-                l[i] = 1
+                l[i] = -1
     return l
 
 
@@ -283,6 +288,27 @@ def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=
                 l[i] = 1
 
     return accumulated_image_with_overlay, l
+
+def ev_sorting(ev_buffer):
+    """
+    Sorts the event data in an EventBuffer object by timestamp.
+
+    Parameters:
+    ev_buffer (EventBuffer): The event buffer containing ts, p, x, and y arrays.
+
+    Returns:
+    EventBuffer: The sorted EventBuffer object.
+    """
+    # Get the sorting indices based on ts
+    sorted_indices = ev_buffer.ts.argsort()
+
+    # Sort each array based on these indices
+    ev_buffer.ts = ev_buffer.ts[sorted_indices]
+    ev_buffer.p = ev_buffer.p[sorted_indices]
+    ev_buffer.x = ev_buffer.x[sorted_indices]
+    ev_buffer.y = ev_buffer.y[sorted_indices]
+
+    return ev_buffer
 
 
 def create_binary_mask(target_frame_norm):
@@ -605,7 +631,6 @@ def accumulate(
 #     )
 
 def save_to_es(final_events,base_filename):
-    import loris
     events_array = numpy.array(final_events)
     filtered_events = events_array[events_array[:, 3] != 0]
     matX =  filtered_events[:,0]
@@ -5135,9 +5160,39 @@ def rgb_render_advanced(cumulative_map_object, l_values):
     image = Image.fromarray(rgb_image)
     return image.transpose(Image.FLIP_TOP_BOTTOM)
 
+def merge_and_sort_events(pk, pk_noise):
+    # Step 1: Create ground truth labels for pk and pk_noise
+    ground_truth_pk = numpy.ones(len(pk.p), dtype=int)  # Array with value 1 for pk
+    ground_truth_pk_noise = numpy.zeros(len(pk_noise.p), dtype=int)  # Array with value 0 for pk_noise
+
+    # Step 2: Concatenate pk and pk_noise data along with ground_truth labels
+    p_combined = numpy.concatenate((pk.p, pk_noise.p))
+    ts_combined = numpy.concatenate((pk.ts, pk_noise.ts))
+    x_combined = numpy.concatenate((pk.x, pk_noise.x))
+    y_combined = numpy.concatenate((pk.y, pk_noise.y))
+    ground_truth = numpy.concatenate((ground_truth_pk, ground_truth_pk_noise))
+
+    # Step 3: Sort by timestamp to match pk_end.sort() order
+    sort_indices = numpy.argsort(ts_combined)
+    p_sorted = p_combined[sort_indices]
+    ts_sorted = ts_combined[sort_indices]
+    x_sorted = x_combined[sort_indices]
+    y_sorted = y_combined[sort_indices]
+    ground_truth_sorted = ground_truth[sort_indices]
+
+    # Step 4: Create pk_end and assign sorted data
+    pk_end = EventBuffer(0)
+    pk_end.p = p_sorted
+    pk_end.ts = ts_sorted
+    pk_end.x = x_sorted
+    pk_end.y = y_sorted
+
+    # Return pk_end, pk, pk_noise, and the sorted ground truth array
+    return pk_end, pk, pk_noise, ground_truth_sorted
+
+
 
 def save_events_to_es(events, filename, ordering):
-    import loris
     events_array = numpy.zeros((len(events), 4))
     events_array[:, 0] = events['ts']
     events_array[:, 1] = events['x']
