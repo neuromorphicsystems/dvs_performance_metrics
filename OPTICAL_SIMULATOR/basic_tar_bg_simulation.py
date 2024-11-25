@@ -119,7 +119,7 @@ def initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetPar
 
     # Initialize dynamic parameters
     Dynamics = {
-        't': 0,  # Initial time [sec]
+        't': -InitParams['dt'],  # Initial time [sec]
         'i_azimuth': SceneParams['i_azimuth'],  # Initial azimuth angle of imager
         'i_elevation': SceneParams['i_elevation'],  # Initial elevation angle of imager
         't_azimuth': SceneParams['t_azimuth'],  # Initial azimuth angle of target

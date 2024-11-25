@@ -17,7 +17,7 @@ FREQ = bins.reshape(bins.shape[0] * bins.shape[1])
 
 # Noise generation methods
 NOISE_FREQ = 1     # Pixels have the same +/- noise frequency but with different phases
-NOISE_MEASURE = 2  # Pixels have a noise distribution measured in one lighting conditions
+NOISE_MEASURE = 1  # Pixels have a noise distribution measured in one lighting conditions
 # random.seed(10)
 
 

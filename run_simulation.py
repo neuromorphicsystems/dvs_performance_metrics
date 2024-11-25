@@ -34,8 +34,8 @@ output_path = "OUTPUT"
 EPOCH       = 1 #how many time you wanna run the same experiment
 blankEvRun = 0.5 # time in [sec] to run event simulation "blank" to rnadomize noise statistics
 
-bgnp = 0.3 # ON event noise rate in events / pixel / s
-bgnn = 0.3 # OFF event noise rate in events / pixel / s
+bgnp = 0.2 # ON event noise rate in events / pixel / s
+bgnn = 0.2 # OFF event noise rate in events / pixel / s
 
 def run_simulation(config_file_name):    
     ini_file = f"config/{config_file_name}.ini"
@@ -99,12 +99,7 @@ def run_simulation(config_file_name):
             'imaging_los_speed': Dynamics['imaging_los_speed'],
             'binary_target_mask': initial_binary_mask,
             'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
-            'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
-            # 'x': ev.x,
-            # 'y': ev.y,
-            # 'p': ev.p,
-            # 'ts': ev.ts,
-            # 'l': l
+            'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation'])
         }
         simulation_data = []
         simulation_data.append(current_data)
@@ -238,6 +233,11 @@ def run_simulation(config_file_name):
                     'binary_target_mask': binary_target_mask,
                     'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
                     'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+                    'x': ev.x,
+                    'y': ev.y,
+                    'p': ev.p,
+                    'ts': ev.ts,
+                    'l': final_lables
                 }
                 simulation_data.append(current_data)
                 
@@ -326,7 +326,7 @@ def run_simulation(config_file_name):
                 initial_target_frame = target_frame_norm
 
         
-                simulation_data.append({'all_events': np.array(final_events)}) # add events to mat file
+                #simulation_data.append({'all_events': np.array(final_events)}) # add events to mat file
                 #all_labels = np.array(final_events)
 
         if scanned_params:
