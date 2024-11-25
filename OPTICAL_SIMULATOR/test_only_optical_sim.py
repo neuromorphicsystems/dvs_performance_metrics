@@ -27,7 +27,9 @@ from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
 # random.seed(10)
 
+DO_PLOTS    = 1 # Are we ploting or are we not - turn off for server running
 SAVE_FRAMES = 1 # Enable/Disable frame saving
+
 EPOCH       = 1 # Number of run for the same experiment
 blankFrames = 5 # Number of blank frames
 # skipFrames  = 0 # Number of skipped frames

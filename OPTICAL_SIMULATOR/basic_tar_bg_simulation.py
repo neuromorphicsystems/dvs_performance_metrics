@@ -438,6 +438,8 @@ def read_ini_file(ini_file):
             'QE': get_clean_value(config2['SensorParams']['QE'], float),
             'threshold_noise': get_clean_value(config2['SensorParams']['threshold_noise'], float),
             'latency_jitter': get_clean_value(config2['SensorParams']['latency_jitter'], float),
+            'latency': get_clean_value(config2['SensorParams']['latency'], float),
+            'I_dark': get_clean_value(config2['SensorParams']['I_dark'], float),
             }
     else:
         SensorParams = {
@@ -450,13 +452,8 @@ def read_ini_file(ini_file):
             'QE': get_clean_value(config['ManualSensorParams']['QE'], float),
             'threshold_noise': get_clean_value(config['ManualSensorParams']['threshold_noise'], float),
             'latency_jitter': get_clean_value(config['ManualSensorParams']['latency_jitter'], float),
-            'lat': get_clean_value(config['ManualSensorParams']['lat'], float),
-            'jit': get_clean_value(config['ManualSensorParams']['jit'], float),
-            'dt': get_clean_value(config['ManualSensorParams']['dt'], float),
-            'time': get_clean_value(config['ManualSensorParams']['time'], float),
-            'pixel_pitch': get_clean_value(config['ManualSensorParams']['pixel_pitch'], float),
-            'Idr': get_clean_value(config['ManualSensorParams']['Idr'], float),
-            'q': get_clean_value(config['ManualSensorParams']['q'], float),
+            'latency': get_clean_value(config['ManualSensorParams']['latency'], float),
+            'I_dark': get_clean_value(config['ManualSensorParams']['I_dark'], float),
             }
 
     scanned_params = {}
