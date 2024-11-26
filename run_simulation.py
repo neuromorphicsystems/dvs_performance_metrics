@@ -12,6 +12,7 @@ import cv2
 import sys
 from PIL import Image, ImageEnhance, ImageOps
 import argparse
+import random
 
 #import loris
 from tqdm import tqdm
@@ -37,8 +38,10 @@ blankEvRun = 0.5 # time in [sec] to run event simulation "blank" to rnadomize no
 bgnp = 0.2 # ON event noise rate in events / pixel / s
 bgnn = 0.2 # OFF event noise rate in events / pixel / s
 
-def run_simulation(config_file_name):    
+def run_simulation(config_file_name,epoc):   
+    random.seed(epoc)
     ini_file = f"config/{config_file_name}.ini"
+
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
     os.makedirs(f"{output_path}/{config_file_name}", exist_ok=True)
 
@@ -97,7 +100,7 @@ def run_simulation(config_file_name):
             't_azimuth': Dynamics['t_azimuth'],
             't_elevation': Dynamics['t_elevation'],
             'imaging_los_speed': Dynamics['imaging_los_speed'],
-            'binary_target_mask': initial_binary_mask,
+            'binary_target_mask': (initial_binary_mask>0),
             'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
             'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation'])
         }
@@ -135,8 +138,9 @@ def run_simulation(config_file_name):
                        tdr=SensorParams['tau_dark']*1e6, 
                        q=1.602176634e-19)
         
-        # Epoc run in test
-        # for ep in range(EPOCH):
+        # Check with different noise models:
+        #dvs.init_bgn_hist("EVENT_SIMULATOR/data/noise_pos_161lux.npy", "EVENT_SIMULATOR/data/noise_neg_161lux.npy")
+
         dvs.init_image(initial_frame)
         ea = SynchronousArbiter(0.1, 0, initial_frame.shape[0])
         dt_us = InitParams['dt']*1e6
@@ -193,9 +197,11 @@ def run_simulation(config_file_name):
                 ev.y = ev.y[rng]
                 ev.p = ev.p[rng]
                 ev.ts = ev.ts[rng]                
-                ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
+                #ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
                 ev.i = len(rng) # why did I need to add this? what changed in the event simulator?
+                #ii = len(ev_full.x)
                 ev_full.increase_ev(ev)
+
 
                 ev_signal = dvs_warping_package.ev_sorting(ev_signal)
                 ev_noise  = dvs_warping_package.ev_sorting(ev_noise)
@@ -208,8 +214,6 @@ def run_simulation(config_file_name):
                 # -1 for moving target
                 final_lables = np.where(lables == -1, -1, ground_truth[rng])
 
-
-                    
                 event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('ts', 'f4'), ('l', 'i4')])
                 events_array = np.zeros(len(rng), dtype=event_dtype)
                 events_array['x']  = ev.x.flatten()
@@ -219,7 +223,7 @@ def run_simulation(config_file_name):
                 events_array['l']  = final_lables
                 
                 lables = lables
-                all_labels.extend(lables.tolist())
+                #all_labels.extend(lables.tolist()) #get rid of me
                 final_events.extend(events_array.tolist())
 
                 # Store the pixel displacement in the current data
@@ -233,7 +237,7 @@ def run_simulation(config_file_name):
                     'binary_target_mask': binary_target_mask,
                     'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
                     'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
-                    'x': ev.x,
+                    'x': ev.x, # get rid of me
                     'y': ev.y,
                     'p': ev.p,
                     'ts': ev.ts,
@@ -319,25 +323,17 @@ def run_simulation(config_file_name):
 
                     # Update the figures
                     plt.pause(0.001)           
-            
-                # Update initial frames to fit the new frames
-                initial_frame = pixel_frame
-                
-                initial_target_frame = target_frame_norm
-
         
-                #simulation_data.append({'all_events': np.array(final_events)}) # add events to mat file
-                #all_labels = np.array(final_events)
 
         if scanned_params:
-            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}"
+            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_ep{epoc}"
         else:
-            Out_file_name = f"{InitParams['sim_name']}"
+            Out_file_name = f"{InitParams['sim_name']}_{epoc}"
         #dvs_warping_package.save_to_es(ev_full, f"{output_path}/{config_file_name}/ev_{Out_file_name}.es")
-        ev_full.write(f"{output_path}/{config_file_name}/ev_{Out_file_name}.dat")
-        np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
-        savemat(f"{output_path}/{config_file_name}/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data})
-
+        #ev_full.write(f"{output_path}/{config_file_name}/ev_{Out_file_name}.dat")
+        savemat(f"{output_path}/{config_file_name}/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
+        #np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
+        np.savetxt(f"{output_path}/{config_file_name}/ev_{Out_file_name}.txt", np.array(final_events), fmt='%d')
 	
     if DO_PLOTS:
         plt.ioff() 
@@ -347,12 +343,18 @@ def run_simulation(config_file_name):
 if __name__ == '__main__':
     # Create an ArgumentParser object
     parser = argparse.ArgumentParser(description='Run simulation with config file.')
-    
-    # Add a positional argument for the config file name
-    parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
 
-    # Parse the command-line arguments
+    parser.add_argument('-c','--input', type=str, help='The path to the configuration file')
     args = parser.parse_args()
 
+    epoc = int(args.input.split()[1])
+    config_file_name = args.input.split()[0]
+    run_simulation(config_file_name,epoc)
+    # Add a positional argument for the config file name
+    #parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
+
+    # Parse the command-line arguments
+    #args = parser.parse_args()
+
     # Call the function with the config file name provided from the command line
-    run_simulation(args.config_file_name)
+    #run_simulation(args.config_file_name)
