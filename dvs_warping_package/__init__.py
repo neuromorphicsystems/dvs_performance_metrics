@@ -59,7 +59,7 @@ from scipy.linalg import expm, lstsq
 from collections import deque
 import configparser
 import random
-import loris
+#import loris
 import sys
 sys.path.append("EVENT_SIMULATOR/src")
 from event_buffer import EventBuffer
