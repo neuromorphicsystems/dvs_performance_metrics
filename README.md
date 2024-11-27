@@ -18,6 +18,7 @@
 git clone https://github.com/neuromorphicsystems/dvs_performance_metrics.git
 cd dvs_performance_metrics
 conda env create -f environment.yml
+conda activate dvs_performance_metric
 python3 -m pip install -e .
 
 ```
@@ -42,3 +43,7 @@ python3 -m pip install -e .
 To pull content from another branch:
 
 `git checkout origin/<brance-name> -- <folder-name/file-name>`
+
+
+# tmux session name
+tmux attach-session -t performance
