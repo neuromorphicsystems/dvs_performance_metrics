@@ -378,17 +378,18 @@ def run_simulation(config_file_name,epoc):
 
 if __name__ == '__main__':    
     ''' Example:
-    python run_simulation.py -filename "T1_1"
-    python run_simulation.py -filename "T1_2"
-    python run_simulation.py -filename "T1_3"
-    python run_simulation.py -filename "T1_4"
-    python run_simulation.py -filename "T1_5"
-    python run_simulation.py -filename "T1_6"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24"
+    python run_simulation.py -filename "T1_1" - in progress
+    python run_simulation.py -filename "T1_2" - in progress
+    python run_simulation.py -filename "T1_3" - in progress
+    python run_simulation.py -filename "T1_4" - in progress
+    python run_simulation.py -filename "T1_5" - in progress
+    python run_simulation.py -filename "T1_6" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_12" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20" - in progress
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24" - in progress
     '''
 
     parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
@@ -399,12 +400,18 @@ if __name__ == '__main__':
     # Extract the filename argument
     config_file = args.filename
 
+
+    config_file = ["T1_1","T1_2","T1_3","T1_4","T1_5","T1_6"]
+    # config_file = ["frequency_amplitude_heatmap_amp_4","frequency_amplitude_heatmap_amp_8","frequency_amplitude_heatmap_amp_12","frequency_amplitude_heatmap_amp_16","frequency_amplitude_heatmap_amp_20","frequency_amplitude_heatmap_amp_24"]
     # Construct the configuration file name
     config_file_name = f"{config_file}"
-    epoch = 3
+    epoch = 2
     
-    for ep in tqdm(range(1, epoch+1)):
-        run_simulation(config_file_name,ep)
+    for cc in range(len(config_file)):
+        for ep in tqdm(range(1, epoch+1)):
+            dvs_warping_package.print_message(f"Config file: {config_file[cc]} epoch: {ep}", color='red', style='bold')
+            config_file_name = config_file[cc]
+            run_simulation(config_file_name,ep)
     # Add a positional argument for the config file name
     #parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
 

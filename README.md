@@ -18,7 +18,7 @@
 git clone https://github.com/neuromorphicsystems/dvs_performance_metrics.git
 cd dvs_performance_metrics
 conda env create -f environment.yml
-conda activate dvs_performance_metric
+source ~/.bashrc && conda activate dvs_performance_metric
 python3 -m pip install -e .
 ```
 
@@ -50,3 +50,5 @@ tmux new-session -d -s performance
 tmux attach-session -t performance
 ## tmux: exit a session
 Ctrl+D
+
+
