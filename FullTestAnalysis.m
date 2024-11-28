@@ -36,12 +36,14 @@ epochs = 1;
 
 % Inisilized full run metrics maps
 BW_SNR_all = cell(length(Tests),1);
-RSNR =  cell(length(Tests),1);
-Al_RSNR =  cell(length(Tests),1);
+RSNR_all =  cell(length(Tests),1);
+Al_RSNR_all =  cell(length(Tests),1);
 leg = [];
 
 
 for ti = 1:length(Tests)
+    disp(' ')
+    disp(['<< Working on results from ',Tests(ti).name,' >>']);
     config_data_file = dir(['OUTPUT\',Tests(ti).name,'\*as_run.ini']);
     [test_data,sanned_param] = readINI([config_data_file.folder,'\',config_data_file.name]);
 
@@ -174,7 +176,11 @@ for ti = 1:length(Tests)
 
             end
         end
-        
+
+        BW_SNR_all{ti} = BW_SNR;
+        RSNR_all{ti} = RSNR;
+        Al_RSNR_all{ti} = Al_RSNR;
+
         figure(1)
         plot(vector,BW_SNR); hold on; grid on;
         leg = [leg,{replace(Tests(ti).name,'_',' ')}];
@@ -191,6 +197,9 @@ for ti = 1:length(Tests)
         xlabel(sanned_param{2});
         ylabel('Aligned Rate SNR')
         drawnow
+        
+        disp(['Done evaluating results from ',Tests(ti).name]);
+        disp(' ');
     end
 end
 
