@@ -20,7 +20,6 @@ cd dvs_performance_metrics
 conda env create -f environment.yml
 conda activate dvs_performance_metric
 python3 -m pip install -e .
-
 ```
 
 # Content of each folder
