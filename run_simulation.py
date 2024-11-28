@@ -13,6 +13,7 @@ import sys
 from PIL import Image, ImageEnhance, ImageOps
 import argparse
 import random
+import shutil
 
 #import loris
 from tqdm import tqdm
@@ -150,7 +151,7 @@ def run_simulation(config_file_name,epoc):
         os.makedirs(f"{output_path}", exist_ok=True)
         os.makedirs(f"{output_path}/{config_file_name}", exist_ok=True)
         os.makedirs(f"{output_path}/{config_file_name}/events_and_labels", exist_ok=True)
-        
+        shutil.copyfile(f"config/{config_file_name}.ini",f"{output_path}/{config_file_name}/{config_file_name}_as_run.ini")
         
         # Create the display for events
         render_timesurface = 1
