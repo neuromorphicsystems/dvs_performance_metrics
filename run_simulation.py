@@ -377,15 +377,37 @@ def run_simulation(config_file_name,epoc):
 
 
 if __name__ == '__main__':
-    # Create an ArgumentParser object
-    parser = argparse.ArgumentParser(description='Run simulation with config file.')
+    # Create an ArgumentParser objectww
+    # parser = argparse.ArgumentParser(description='Run simulation with config file.')
 
-    parser.add_argument('-c','--input', type=str, help='The path to the configuration file')
+    # parser.add_argument('-c','--input', type=str, help='The path to the configuration file')
+    # args = parser.parse_args()
+
+    # epoc = int(args.input.split()[1])
+    # config_file_name = args.input.split()[0]
+    
+    
+    ''' Example:
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20"
+    '''
+
+    parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
+    parser.add_argument('-filename', type=str, default="frequency_amplitude_heatmap_amp_4", 
+                        help="Name of the configuration file")
     args = parser.parse_args()
 
-    epoc = int(args.input.split()[1])
-    config_file_name = args.input.split()[0]
-    run_simulation(config_file_name,epoc)
+    # Extract the filename argument
+    config_file = args.filename
+
+    # Construct the configuration file name
+    config_file_name = f"{config_file}"
+    epoch = 3
+    
+    for ep in tqdm(range(1, epoch+1)):
+        run_simulation(config_file_name,ep)
     # Add a positional argument for the config file name
     #parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
 
