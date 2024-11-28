@@ -144,25 +144,23 @@ for ti = 1:length(Tests)
                 BW_SNR(vi) = BW_SNR(vi) + bw_snr/epochs; % average value
                 % Add some sort of dysplay here for debuging
 
-                % Calculate Rate SNR metric
+                % Calculate Rate SNR metric - TO FIX. Not a good metric...
                 [rsnr, RateImage_Sig_med, RateImage_BG_med]= calc_RSNR(signal_rate_stack(:,:,1),bg_rate_stack(:,:,1),matrix_size);
                 disp([' - Rate SNR = ', num2str(rsnr)])
                 RSNR(vi) = RSNR(vi) + rsnr/epochs;
                 % figure;
                 % subplot(2,2,1)
                 % imagesc(log(RateImage_Sig_med+1)'); colorbar ;
-                % title([PSF_type{psft},' SIG - not aligned'])
                 % subplot(2,2,2)
                 % imagesc(log(RateImage_BG_med+1)'); colorbar;
-                % title(['BG. RSNR=', num2str(RSNR(psft,vi))])
-
+                
                 % Align events according to target motion in frame
                 [all_events_aligned,filtered_inds,target_time_al] = align_Events(all_events,simulation_data,matrix_size);
                 target_time_al = target_time_al'*dt;
                 sig_aligned_ind = sig_ind(filtered_inds);
                 [all_rate_aligned_stack,signal_rate_aligned_stack,bg_rate_aligned_stack] = create_rate_image(all_events_aligned,matrix_size,[],sig_aligned_ind);
 
-                % Calculate Rate SNR metric for aligned event cloud
+                % Calculate Rate SNR metric for aligned event cloud - TO FIX. Not a good metric...
                 [al_rsnr, RateImage_Sig_aligned_med, RateImage_BG_aligned_med]= calc_RSNR(signal_rate_aligned_stack(:,:,1),bg_rate_aligned_stack(:,:,1),matrix_size);
                 disp([' - aligned Rate SNR = ', num2str(al_rsnr)])
                 Al_RSNR(vi) = Al_RSNR(vi) + al_rsnr/epochs;
