@@ -225,7 +225,8 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
         target_frame = np.zeros_like(BG_frame)
     
     # Add BG and target to a single layer
-    target_frame_norm = target_frame / np.max(target_frame)
+    offset = 1e-6
+    target_frame_norm = target_frame / np.max(target_frame+offset)
     if np.sum(target_frame) and obstruct:
         target_frame_norm_2 = target_frame_norm ** 2
         out_frame = BG_frame * (1 - target_frame_norm_2) + target_brightness * target_frame * target_frame_norm_2
@@ -258,6 +259,7 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
     target_height = SensorParams['height']
     target_width = SensorParams['width']
     normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
+    normalized_target_frame = np.nan_to_num(normalized_target_frame, nan=0.0, posinf=255, neginf=0)
     target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
     resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
     resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
