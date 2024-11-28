@@ -19,25 +19,29 @@
 
 
 import subprocess
-import tqdm
+from tqdm import tqdm
 import dvs_warping_package
 
 # Path to your virtual environment's Python executable (update this with the correct path)
 python_executable = '/home/sami/anaconda3/envs/dvs_performance_metric/bin/python'
 test = 1
-sim  = 6
+sim  = 3
 
 # Loop through simulations
 # for sim in range(1, 7):
 
-for ep in range(1, 3):
+for ep in tqdm(range(1, 3)):
     # Construct the argument as in MATLAB (e.g., T1_1, T1_2, ...)
     dvs_warping_package.print_message(f"Config file: T{test}_{sim} epoch: {ep}", color='red', style='bold')
 
     arg = f'-c T{test}_{sim} {ep}'
     
     # Run the Python script with the specific argument
-    subprocess.run([python_executable, 'run_simulation.py', arg], check=True)
+    # subprocess.run([python_executable, 'run_simulation.py', arg], check=True)
+    
+    # to handle long-running processes more gracefully
+    subprocess.run([python_executable, 'run_simulation.py', arg], check=True, timeout=3600)
+
 
     # Print the progress message
     print(f'done running simulation epoc #{ep}, run #{sim}, from test #{test}1')
