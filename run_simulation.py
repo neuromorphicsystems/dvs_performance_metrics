@@ -376,22 +376,19 @@ def run_simulation(config_file_name,epoc):
         plt.show()
 
 
-if __name__ == '__main__':
-    # Create an ArgumentParser objectww
-    # parser = argparse.ArgumentParser(description='Run simulation with config file.')
-
-    # parser.add_argument('-c','--input', type=str, help='The path to the configuration file')
-    # args = parser.parse_args()
-
-    # epoc = int(args.input.split()[1])
-    # config_file_name = args.input.split()[0]
-    
-    
+if __name__ == '__main__':    
     ''' Example:
+    python run_simulation.py -filename "T1_1"
+    python run_simulation.py -filename "T1_2"
+    python run_simulation.py -filename "T1_3"
+    python run_simulation.py -filename "T1_4"
+    python run_simulation.py -filename "T1_5"
+    python run_simulation.py -filename "T1_6"
     python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4"
     python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8"
     python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16"
     python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24"
     '''
 
     parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
