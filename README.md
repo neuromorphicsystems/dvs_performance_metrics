@@ -44,5 +44,9 @@ To pull content from another branch:
 `git checkout origin/<brance-name> -- <folder-name/file-name>`
 
 
-# tmux session name
+## tmux: create session
+tmux new-session -d -s performance
+## tmux: access a session
 tmux attach-session -t performance
+## tmux: exit a session
+Ctrl+D
