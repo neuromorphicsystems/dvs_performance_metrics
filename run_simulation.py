@@ -30,7 +30,7 @@ from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
 DO_PLOTS    = 0 # Are we ploting or are we not - turn off for server running
-SAVE_FRAMES = 1 # Enable/Disable frame saving
+SAVE_FRAMES = 0 # Enable/Disable frame saving
 output_path = "OUTPUT"
 
 EPOCH       = 1 #how many time you wanna run the same experiment
@@ -77,6 +77,8 @@ def run_simulation(config_file_name,epoc):
             SensorBiases[param] = scanned_param_values[0][param_value_index]
         if section == 'SensorParams':
             SensorParams[param] = scanned_param_values[0][param_value_index]
+
+        dvs_warping_package.print_message(f"Loop 1: {param_value_index}", color='yellow', style='bold')
 
         # Create the event buffer and arbiter
         ev_full = EventBuffer(1)
@@ -184,6 +186,7 @@ def run_simulation(config_file_name,epoc):
         # Single simulation run	in epoch
         counter = 1
         # with tqdm(total=t_end, desc="Simulation Progress", unit="time step") as pbar:
+        dvs_warping_package.print_message(f"Optical-event simulator start", color='yellow', style='bold')
         while t < t_end:           
             # Create new intensity image frame, current target mask, and update dynamic parameters              
             pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics,
@@ -376,20 +379,20 @@ def run_simulation(config_file_name,epoc):
         plt.show()
 
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     ''' Example:
-    python run_simulation.py -filename "T1_1" - in progress
-    python run_simulation.py -filename "T1_2" - in progress
-    python run_simulation.py -filename "T1_3" - in progress
-    python run_simulation.py -filename "T1_4" - in progress
-    python run_simulation.py -filename "T1_5" - in progress
-    python run_simulation.py -filename "T1_6" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_12" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20" - in progress
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24" - in progress
+    python run_simulation.py -filename "T1_1"
+    python run_simulation.py -filename "T1_2"
+    python run_simulation.py -filename "T1_3"
+    python run_simulation.py -filename "T1_4"
+    python run_simulation.py -filename "T1_5"
+    python run_simulation.py -filename "T1_6"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_12"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20"
+    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24"
     '''
 
     parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
@@ -400,18 +403,16 @@ if __name__ == '__main__':
     # Extract the filename argument
     config_file = args.filename
 
-
-    config_file = ["T1_1","T1_2","T1_3","T1_4","T1_5","T1_6"]
-    # config_file = ["frequency_amplitude_heatmap_amp_4","frequency_amplitude_heatmap_amp_8","frequency_amplitude_heatmap_amp_12","frequency_amplitude_heatmap_amp_16","frequency_amplitude_heatmap_amp_20","frequency_amplitude_heatmap_amp_24"]
     # Construct the configuration file name
     config_file_name = f"{config_file}"
     epoch = 2
     
-    for cc in range(len(config_file)):
-        for ep in tqdm(range(1, epoch+1)):
-            dvs_warping_package.print_message(f"Config file: {config_file[cc]} epoch: {ep}", color='red', style='bold')
-            config_file_name = config_file[cc]
-            run_simulation(config_file_name,ep)
+    # for cc in range(len(config_file)):
+    for ep in tqdm(range(1, epoch+1)):
+        dvs_warping_package.print_message(f"Config file: {config_file_name} epoch: {ep}", color='red', style='bold')
+        # config_file_name = config_file[cc]
+        run_simulation(config_file_name,ep)
+    
     # Add a positional argument for the config file name
     #parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
 
