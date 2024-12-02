@@ -405,7 +405,7 @@ if __name__ == '__main__':
 
     # Construct the configuration file name
     config_file_name = f"{config_file}"
-    epoch = 2
+    epoch = 5
     
     # for cc in range(len(config_file)):
     for ep in tqdm(range(1, epoch+1)):
