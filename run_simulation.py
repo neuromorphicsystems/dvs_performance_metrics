@@ -44,7 +44,7 @@ def run_simulation(config_file_name,epoc):
     ini_file = f"config/{config_file_name}.ini"
 
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
-    # os.makedirs(f"{output_path}/{config_file_name}", exist_ok=True)
+    # os.makedirs(f"{output_path}/{config_file_name}_psf_5", exist_ok=True)
 
     if DO_PLOTS:
         plt.ion()    
@@ -151,9 +151,9 @@ def run_simulation(config_file_name,epoc):
         t = 0
 
         os.makedirs(f"{output_path}", exist_ok=True)
-        os.makedirs(f"{output_path}/{config_file_name}", exist_ok=True)
-        os.makedirs(f"{output_path}/{config_file_name}/events_and_labels", exist_ok=True)
-        shutil.copyfile(f"config/{config_file_name}.ini",f"{output_path}/{config_file_name}/{config_file_name}_as_run.ini")
+        os.makedirs(f"{output_path}/{config_file_name}_psf_5", exist_ok=True)
+        os.makedirs(f"{output_path}/{config_file_name}_psf_5/events_and_labels", exist_ok=True)
+        shutil.copyfile(f"config/{config_file_name}.ini",f"{output_path}/{config_file_name}_psf_5/{config_file_name}_psf_5_as_run.ini")
         
         # Create the display for events
         render_timesurface = 1
@@ -162,12 +162,12 @@ def run_simulation(config_file_name,epoc):
         if SAVE_FRAMES:
             render_timesurface = 1
             dirs = [
-                f"{output_path}/{config_file_name}/raw_event_image/t_velocity_{SceneParams['t_velocity']}",
-                f"{output_path}/{config_file_name}/only_signal_image/t_velocity_{SceneParams['t_velocity']}",
-                f"{output_path}/{config_file_name}/only_background_image/t_velocity_{SceneParams['t_velocity']}",
-                f"{output_path}/{config_file_name}/only_noise_image/t_velocity_{SceneParams['t_velocity']}",
-                f"{output_path}/{config_file_name}/mask_overlay/t_velocity_{SceneParams['t_velocity']}",
-                f"{output_path}/{config_file_name}/labeled_image/t_velocity_{SceneParams['t_velocity']}"
+                f"{output_path}/{config_file_name}_psf_5/raw_event_image/t_velocity_{SceneParams['t_velocity']}",
+                f"{output_path}/{config_file_name}_psf_5/only_signal_image/t_velocity_{SceneParams['t_velocity']}",
+                f"{output_path}/{config_file_name}_psf_5/only_background_image/t_velocity_{SceneParams['t_velocity']}",
+                f"{output_path}/{config_file_name}_psf_5/only_noise_image/t_velocity_{SceneParams['t_velocity']}",
+                f"{output_path}/{config_file_name}_psf_5/mask_overlay/t_velocity_{SceneParams['t_velocity']}",
+                f"{output_path}/{config_file_name}_psf_5/labeled_image/t_velocity_{SceneParams['t_velocity']}"
             ]
             for dir in dirs:
                 os.makedirs(dir, exist_ok=True)  
@@ -340,12 +340,12 @@ def run_simulation(config_file_name,epoc):
                 warped_image_only_noise    = dvs_warping_package.rgb_render_advanced(cumulative_map_object_zero, seg_label_zero)
                 
                 
-                warped_image_segmentation_raw.save(f"{output_path}/{config_file_name}/raw_event_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_sig_{t:.3f}.png")
-                warped_image_only_signal.save(f"{output_path}/{config_file_name}/only_signal_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_sig_{t:.3f}.png")
-                warped_image_only_bckg.save(f"{output_path}/{config_file_name}/only_background_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_backg_{t:.3f}.png")
-                warped_image_only_noise.save(f"{output_path}/{config_file_name}/only_noise_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_noise_{t:.3f}.png")
-                combined_image.save(f"{output_path}/{config_file_name}/mask_overlay/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_combined_image_{t:.3f}.png")
-                warped_image_segmentation_rgb_zero.save(f"{output_path}/{config_file_name}/labeled_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")                
+                warped_image_segmentation_raw.save(f"{output_path}/{config_file_name}_psf_5/raw_event_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_sig_{t:.3f}.png")
+                warped_image_only_signal.save(f"{output_path}/{config_file_name}_psf_5/only_signal_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_sig_{t:.3f}.png")
+                warped_image_only_bckg.save(f"{output_path}/{config_file_name}_psf_5/only_background_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_backg_{t:.3f}.png")
+                warped_image_only_noise.save(f"{output_path}/{config_file_name}_psf_5/only_noise_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_only_noise_{t:.3f}.png")
+                combined_image.save(f"{output_path}/{config_file_name}_psf_5/mask_overlay/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_combined_image_{t:.3f}.png")
+                warped_image_segmentation_rgb_zero.save(f"{output_path}/{config_file_name}_psf_5/labeled_image/t_velocity_{SceneParams['t_velocity']}/t_velocity_{SceneParams['t_velocity']}_warped_image_segmentation_rgb_zero_{t:.3f}.png")                
 
             elif DO_PLOTS:
                 # plot event frame in own frame
@@ -368,11 +368,11 @@ def run_simulation(config_file_name,epoc):
             Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_ep{epoc}"
         else:
             Out_file_name = f"{InitParams['sim_name']}_{epoc}"
-        #dvs_warping_package.save_to_es(ev_full, f"{output_path}/{config_file_name}/ev_{Out_file_name}.es")
-        #ev_full.write(f"{output_path}/{config_file_name}/ev_{Out_file_name}.dat")
-        savemat(f"{output_path}/{config_file_name}/events_and_labels/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
-        #np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
-        np.savetxt(f"{output_path}/{config_file_name}/events_and_labels/ev_{Out_file_name}.txt", np.array(final_events), fmt='%d')
+        #dvs_warping_package.save_to_es(ev_full, f"{output_path}/{config_file_name}_psf_5/ev_{Out_file_name}.es")
+        #ev_full.write(f"{output_path}/{config_file_name}_psf_5/ev_{Out_file_name}.dat")
+        savemat(f"{output_path}/{config_file_name}_psf_5/events_and_labels/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
+        #np.savetxt(f"{output_path}/{config_file_name}_psf_5/labels_{Out_file_name}.txt", all_labels, fmt='%d')
+        np.savetxt(f"{output_path}/{config_file_name}_psf_5/events_and_labels/ev_{Out_file_name}.txt", np.array(final_events), fmt='%d')
         
     if DO_PLOTS:
         plt.ioff() 
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     
     # for cc in range(len(config_file)):
     for ep in tqdm(range(1, epoch+1)):
-        dvs_warping_package.print_message(f"Config file: {config_file_name} epoch: {ep}", color='red', style='bold')
+        dvs_warping_package.print_message(f"Config file: {config_file_name}_psf_5 epoch: {ep}", color='red', style='bold')
         # config_file_name = config_file[cc]
         run_simulation(config_file_name,ep)
     
