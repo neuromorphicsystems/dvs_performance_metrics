@@ -15,23 +15,15 @@
 ## Installation
 
 ```sh
-conda create -n dvs_performance_metric python=3.9
-conda activate dvs_performance_metric
 git clone https://github.com/neuromorphicsystems/dvs_performance_metrics.git
 cd dvs_performance_metrics
+conda env create -f environment.yml
+source ~/.bashrc && conda activate dvs_performance_metric
 python3 -m pip install -e .
-pip install tqdm
-pip install plotly
-pip install scikit-image
-pip install loris
-pip install PyYAML
-pip install opencv-python
-pip install scikit-learn
-pip install pillow
-pip install astropy
 ```
 
-# Folder structure
+# Content of each folder
+
 
 **OPTICAL_SIMULATOR**: 
 
@@ -41,5 +33,22 @@ pip install astropy
 
 **PERFORMANCE_METRICS**: 
 
-**OUTPUT**
+
+**OUTPUT**:
+
+
+**dvs_warping_package and dvs_warping_package_extension**: Python and C++ packages to enable denoising and event warping
+
+To pull content from another branch:
+
+`git checkout origin/<brance-name> -- <folder-name/file-name>`
+
+
+## tmux: create session
+tmux new-session -d -s performance
+## tmux: access a session
+tmux attach-session -t performance
+## tmux: exit a session
+Ctrl+D
+
 

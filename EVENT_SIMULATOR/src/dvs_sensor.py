@@ -1,8 +1,11 @@
 # Damien JOUBERT 17-01-2020 - Updated by AvS 23-02-2024
 import numpy as np
+import dvs_warping_package
 from event_buffer import EventBuffer
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import random
+import dvs_warping_package
 
 # Global variables
 # Log bin for the noise distributions
@@ -14,7 +17,8 @@ FREQ = bins.reshape(bins.shape[0] * bins.shape[1])
 
 # Noise generation methods
 NOISE_FREQ = 1     # Pixels have the same +/- noise frequency but with different phases
-NOISE_MEASURE = 2  # Pixels have a noise distribution measured in one lighting conditions
+NOISE_MEASURE = 1  # Pixels have a noise distribution measured in one lighting conditions
+# random.seed(10)
 
 
 class DvsSensor:
@@ -59,7 +63,7 @@ class DvsSensor:
         """
         self.shape = (x, y)
 
-    def initCamera(self, x, y, lat, jit, ref, tau, th_pos, th_neg, th_noise, bgnp, bgnn, lcurr, fmax):
+    def initCamera(self, x, y, lat, jit, ref, tau, th_pos, th_neg, th_noise, bgnp, bgnn, Idr, pp, qe, ff, tsf, tdr, q):
         """ Set the properties of the DVS sensor
 
             In this version the sensor positive and negative event's properties are symmetrical
@@ -94,8 +98,13 @@ class DvsSensor:
         self.init_bgn()
         self.init_thresholds()
         self.time = 0
-        self.leakeage_current = lcurr
-        self.F_max = fmax
+        self.Idr = Idr
+        self.pixel_pitch = pp
+        self.quantum_efficiency = qe
+        self.fill_factor = ff
+        self.tau_sf = tsf
+        self.tau_dark = tdr
+        self.q = q
 
     def init_bgn(self):
         """ Initialise the phases of the background noise
@@ -183,17 +192,44 @@ class DvsSensor:
         self.last_v = np.log(img + 1) #log(I+Idark)
         self.cur_v = np.log(img + 1) #log(I+Idark)
         
-        ######################## BEFORE ###########################
+        # ####################### BEFORE ###########################
         # self.tau_p = self.tau * 1e3 / (img + 1) #this need to be updated
         
-        ######################## AFTER ###########################
-        self.tau_p = (self.tau * self.F_max)  / (img + self.leakeage_current)
+        # ######################## AFTER ###########################
+        # self.tau_p = (self.tau * self.F_max)  / (img + self.leakeage_current)
         
-        ###################### BRIAN THESIS ######################
-        # How to calculate Id and how to calculate I?
-        # self.Id = 5.5
-        # # I 
-        # self.tau_p = (self.tau * self.Id)  / (I + self.Id)
+        
+        # ###################### BRIAN THESIS ######################
+        # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img
+        # self.tau_p = self.tau_dark * (self.Idr  / (I + self.Idr))
+        
+        
+        ################################ FINAL TIME CONSTANT CALCULATION ###################################
+        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
+                                                                  self.quantum_efficiency, 
+                                                                  self.q, 
+                                                                  self.pixel_pitch, 
+                                                                  self.fill_factor, 
+                                                                  self.Idr, 
+                                                                  self.tau_dark, 
+                                                                  self.tau_sf)
+        
+        # self.Idr = np.full(img.shape, self.Idr) # an array of the dark current
+        # # Step 1: Compute Photocurrent I
+        # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor  # I has the same shape as img
+        # # Step 2: Compute Photoreceptor Time Constant tau_p
+        # epsilon = 1e-20  # Small constant to prevent division by zero
+        # denominator = I + self.Idr
+        # denominator = np.maximum(denominator, epsilon)
+        # self.tau_p = self.tau_dark * (self.Idr / denominator)
+        # # Step 3: Assign Time Constants Based on the Condition
+        # # Create tau_sf_array with the same shape as tau_p
+        # tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
+        # # Step 4: Use np.where to assign time constants
+        # # If tau_sf > tau_p, use tau_p; else, use tau_sf
+        # self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
+        # self.tau_p = self.tau
+        ###################################################################################
         
         self.time_px[:, :] = 0
         self.time = 0
@@ -312,10 +348,10 @@ class DvsSensor:
         return np.uint64(np.clip(t_ev, 0, 10000))
 
     def update(self, img, dt):
-        """ Update the sensor with a nef irradiance's frame
+        """ Update the sensor with a nef photon flux frame
             Follow the ICNS model
             Args:
-                img: radiometric value in the focal plane
+                img: Photon Flux Density (photons/m^2⋅s)
                 dt: delay between the frame and the last one (us)
             Returns:
                 EventBuffer of the created events
@@ -333,15 +369,38 @@ class DvsSensor:
         img_l[ind] = np.log(img[ind] + 1) # this need to be updated
 
         # # Update time constants - self.tau defined at 1 klux
-        ######################## BEFORE ###########################
+        # ####################### BEFORE ###########################
         # self.tau_p[ind] = self.tau  / (img[ind] + 1) * 1e3 # this need to be updated
         
         
-        ######################## AFTER ###########################
-        # Update the time constant based on the leakeage current and fmax
-        self.tau_p[ind] = (self.tau * self.F_max)  / (img[ind] + self.leakeage_current)
+        # TODO: Add imgA output of I
+        ################################ FINAL TIME CONSTANT CALCULATION ###################################
+        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
+                                                                  self.quantum_efficiency, 
+                                                                  self.q, 
+                                                                  self.pixel_pitch, 
+                                                                  self.fill_factor, 
+                                                                  self.Idr, 
+                                                                  self.tau_dark, 
+                                                                  self.tau_sf)
+        
+        # self.Idr = np.full(img.shape, self.Idr)
+        # # Step 1: Compute Photocurrent I
+        # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img * self.fill_factor # I has the same shape as img
+        # # Step 2: Compute Photoreceptor Time Constant tau_p
+        # epsilon = 1e-20  # Small constant to prevent division by zero
+        # denominator = I + self.Idr
+        # denominator = np.maximum(denominator, epsilon)
+        # self.tau_p = self.tau_dark * (self.Idr / denominator)
+        # # Step 3: Assign Time Constants Based on the Condition
+        # # Create tau_sf_array with the same shape as tau_p
+        # tau_sf_array = np.full(self.tau_p.shape, self.tau_sf)
+        # # Step 4: Use np.where to assign time constants
+        # # If tau_sf > tau_p, use tau_p; else, use tau_sf
+        # self.tau = np.where(tau_sf_array > self.tau_p, self.tau_p, tau_sf_array)
+        # self.tau_p = self.tau
+        ###################################################################################
 
-        ############################ this condition doesnt go through ####################
         # Update refractory and reset pixels
         ind_ref = np.where(self.cur_ref < self.time + dt)
         px_delta_ref = np.array(self.cur_ref[ind_ref] - self.time, dtype=float)
@@ -472,7 +531,9 @@ class DvsSensor:
         pk_end.merge(pk, pk_noise)
         pk_end.sort()
         
-        return pk_end
+        pk_end, pk, pk_noise, ground_truth_sorted = dvs_warping_package.merge_and_sort_events(pk, pk_noise)
+        
+        return pk_end, pk, pk_noise, ground_truth_sorted
 
 
 

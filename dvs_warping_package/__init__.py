@@ -57,6 +57,13 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from math import exp, isfinite
 from scipy.linalg import expm, lstsq
 from collections import deque
+import configparser
+import random
+#import loris
+import sys
+sys.path.append("EVENT_SIMULATOR/src")
+from event_buffer import EventBuffer
+
 # # from torchvision.transforms.functional import gaussian_blur
 # # import cache
 # # import stars
@@ -124,6 +131,316 @@ def print_message(message, color='default', style='normal'):
     print(f"{styles[style]}{colors[color]}{message}{styles['default']}")
 
 
+
+def label_events(binary_target_mask, x, y):
+    """
+    Label events if they fall within a binary pixel or its 3x3 neighbors, after vertically flipping the binary mask.
+
+    Parameters:
+    - binary_target_mask: 2D array (height, width) representing the binary mask.
+    - x, y: 1D arrays of x and y coordinates of events.
+
+    Returns:
+    - l: 1D array of labels where 1 means the event is within a pixel or its 3x3 neighbors.
+    """
+
+    l = numpy.zeros_like(x, dtype=numpy.int32)
+    height, width = binary_target_mask.shape
+
+    # Iterate through each event
+    for i in range(len(x)):
+        # Ensure the event coordinates are within the bounds of the binary mask
+        if 0 <= x[i] < width and 0 <= y[i] < height:
+            # If the corresponding pixel in the binary mask is 1, label the event as 1
+            if binary_target_mask[y[i], x[i]] == 1:
+                l[i] = -1
+    return l
+
+
+def binarize_target_frame(target_frame_norm, psf_size, psf_multiplier, extra_percentage=10):
+    """
+    Binarize the target frame by thresholding it based on the PSF area plus a user-defined extra percentage,
+    and return the coordinates of the circle that overlays the PSF area.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        psf_size: The size of the PSF (Airy disk size).
+        psf_multiplier: The multiplier used when generating the PSF (aperture gain or intensity gain).
+        extra_percentage: The percentage of area to include outside the PSF (default is 5%).
+        
+    Returns:
+        binary_frame: Binarized target frame with 1 inside the threshold and 0 outside.
+        threshold_value: The threshold value used for binarization.
+        circle_params: Parameters of the circle overlay (center_x, center_y, radius).
+    """
+    # Flatten the normalized frame for easier manipulation
+    flattened_frame = target_frame_norm.flatten()
+    
+    # Calculate the PSF radius and area, considering the multiplier
+    psf_radius = psf_size * psf_multiplier
+    psf_area = numpy.pi * (psf_radius ** 2)
+    
+    # Add the extra percentage to the PSF area to account for background inclusion
+    total_pixels_to_include = psf_area * (1 + extra_percentage / 100)
+    
+    # Sort pixel values from highest to lowest to determine intensity levels
+    sorted_pixels = numpy.sort(flattened_frame)[::-1]
+    
+    # Find the threshold index based on the cumulative area and total pixels to include
+    cumulative_area = numpy.cumsum(sorted_pixels)
+    threshold_index = numpy.searchsorted(cumulative_area, total_pixels_to_include)
+    
+    # Ensure the threshold is valid and select the appropriate intensity value
+    threshold_value = sorted_pixels[min(threshold_index, len(sorted_pixels) - 1)]
+    
+    # Binarize the frame using the calculated threshold to select the PSF and slight background
+    binary_frame = (target_frame_norm >= threshold_value).astype(numpy.uint8)
+
+    # Find the centroid of the PSF by calculating the weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    center_x = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    center_y = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    
+    # Calculate the radius of the circle based on total pixels to include
+    radius = numpy.sqrt(total_pixels_to_include / numpy.pi)
+
+    # Return the binary image and circle parameters (center_x, center_y, radius)
+    circle_params = (center_x, center_y, radius)
+    
+    return binary_frame, circle_params
+
+
+def plot_with_circle(binary_image, circle_params):
+    """
+    Plots the binary image with an overlay of a circle showing the boundary around the PSF object.
+    
+    Args:
+        binary_image: The binary image after thresholding.
+        circle_params: Parameters of the circle (center_x, center_y, radius).
+    """
+    center_x, center_y, radius = circle_params
+    
+    # Plot the binary image
+    fig, ax = plt.subplots()
+    ax.imshow(binary_image, cmap='gray')
+    
+    # Overlay the circle
+    circle = plt.Circle((center_x, center_y), radius, color='red', fill=False, linewidth=1)
+    ax.add_patch(circle)
+    
+    # Set plot details
+    ax.set_title("Binary PSF with Overlay Circle")
+    ax.axis('off')
+    plt.savefig("OUTPUT/3_target_frame_norm.png", bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    # plt.show()
+    
+    
+def overlay_and_label_events(accumulated_image, binary_target_mask, x, y, alpha=64, y_offset=0):
+    """
+    Overlays the binary mask as a faint red mask (only where the mask is 1) on top of the accumulated image
+    and labels events based on whether they fall within the binary mask.
+
+    Parameters:
+    - accumulated_image: The accumulated image (e.g., from dvs_warping_package, as a NumPy array or PIL image).
+    - binary_target_mask: The binary mask indicating areas of interest (1), as a NumPy array.
+    - x, y: 1D arrays of x and y coordinates of events.
+    - alpha: Transparency level for the overlay (0-255, where 255 is fully opaque).
+
+    Returns:
+    - A tuple:
+        - A PIL image with the binary mask overlaid on the accumulated image.
+        - A 1D array `l` where events falling inside a pixel with binary mask value 1 are labeled as 1.
+    """
+    
+    accumulated_image_pil = accumulated_image
+        
+    # binary_target_mask = numpy.flipud(binary_target_mask)
+    # Convert the binary mask to an 8-bit grayscale image (0 for background, 255 for mask)
+    binary_mask = Image.fromarray(binary_target_mask.astype(numpy.uint8) * 255)  # Grayscale image (0 or 255)
+    
+    # Create a red image with transparency where the binary mask has value 1
+    red_overlay = Image.new("RGBA", binary_mask.size, (255, 0, 0, alpha))  # Red color with transparency (alpha)
+    
+    # Create a mask to apply the red overlay only where the binary mask is 1
+    binary_mask = binary_mask.convert("L")  # Ensure it's in grayscale mode (L)
+    
+    # Convert the accumulated image to RGBA for overlay compatibility
+    accumulated_image_pil = accumulated_image_pil.convert("RGBA")
+    
+    # Only paste the red overlay where the binary mask is 1
+    accumulated_image_with_overlay = accumulated_image_pil.copy()
+    accumulated_image_with_overlay.paste(red_overlay, (0, 0), mask=binary_mask)  # Paste with the binary mask as transparency
+    
+    # Now perform the horizontal flip on the events before labeling
+    
+    height, width = binary_target_mask.shape
+    
+    # Initialize label array with zeros (same size as x)
+    l = numpy.zeros_like(x, dtype=numpy.int32)
+
+    # Iterate through each event
+    for i in range(len(x)):
+        # Ensure the event coordinates are within the bounds of the binary mask
+        if 0 <= x[i] < width and 0 <= y[i] < height:
+            # If the corresponding pixel in the binary mask is white (value 1), label the event as 1
+            if binary_target_mask[y[i], x[i]] == 1:
+                l[i] = 1
+
+    return accumulated_image_with_overlay, l
+
+def ev_sorting(ev_buffer):
+    """
+    Sorts the event data in an EventBuffer object by timestamp.
+
+    Parameters:
+    ev_buffer (EventBuffer): The event buffer containing ts, p, x, and y arrays.
+
+    Returns:
+    EventBuffer: The sorted EventBuffer object.
+    """
+    # Get the sorting indices based on ts
+    sorted_indices = ev_buffer.ts.argsort()
+
+    # Sort each array based on these indices
+    ev_buffer.ts = ev_buffer.ts[sorted_indices]
+    ev_buffer.p = ev_buffer.p[sorted_indices]
+    ev_buffer.x = ev_buffer.x[sorted_indices]
+    ev_buffer.y = ev_buffer.y[sorted_indices]
+
+    return ev_buffer
+
+
+def create_binary_mask(target_frame_norm):
+    """
+    Calculate the PSF center and the bumped-up radius using the maximum threshold possible,
+    and create a new binary mask with the object at the same coordinates but with the new radius.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        radius_increase: The percentage to bump the PSF radius.
+        
+    Returns:
+        x_center: X coordinate of the PSF center.
+        y_center: Y coordinate of the PSF center.
+        radius_high: The bumped-up radius after increasing by the user-defined percentage.
+        new_binary_image: The binary mask with the object at the same center but with the new radius.
+    """
+    # Calculate the maximum threshold (which selects all non-zero pixels)
+    max_threshold = numpy.max(target_frame_norm)/10
+    
+    # Create a binary mask based on the maximum threshold
+    binary_mask = (target_frame_norm > max_threshold).astype(numpy.uint8)
+    
+    # Find the centroid of the PSF using weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    
+    # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    
+    # Bump the radius by the user-defined percentage
+    # radius_high = psf_radius * (1 + radius_increase / 100)
+    # radius_high = psf_radius * (1 + 20 / psf_radius)
+    radius_high = psf_radius * 1.25 # an constant increase of 25%
+    
+    
+    # Create a new binary mask with the bumped radius, keeping the same center
+    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
+    
+    # Calculate the coordinates of the pixels within the new bumped radius
+    for y in range(new_binary_image.shape[0]):
+        for x in range(new_binary_image.shape[1]):
+            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+                new_binary_image[y, x] = 1
+    
+    return new_binary_image #x_center, y_center, radius_high, new_binary_image
+
+
+def create_binary_mask_with_psf(target_frame_norm, psf_size, psf_multiplier, radius_increase):
+    """
+    Calculate the PSF center and the bumped-up radius using the maximum threshold possible,
+    and create a new binary mask with the object at the same coordinates but with the new radius.
+    
+    Args:
+        target_frame_norm: Normalized target frame with PSF intensity values.
+        psf_size: The size of the PSF (Airy disk size).
+        psf_multiplier: The multiplier used when generating the PSF (aperture gain or intensity gain).
+        radius_increase: The percentage to bump the PSF radius (inversely proportional to the PSF size).
+        
+    Returns:
+        new_binary_image: The binary mask with the object at the same center but with the new radius.
+    """
+    # Calculate the maximum threshold (which selects all non-zero pixels)
+    max_threshold = numpy.max(target_frame_norm) / 10
+    
+    # Create a binary mask based on the maximum threshold
+    binary_mask = (target_frame_norm >= max_threshold).astype(numpy.uint8)
+    
+    # Find the centroid of the PSF using the weighted average of pixel positions
+    y_coords, x_coords = numpy.indices(target_frame_norm.shape)
+    x_center = numpy.sum(x_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    y_center = numpy.sum(y_coords * target_frame_norm) / numpy.sum(target_frame_norm)
+    
+    # Calculate the original PSF radius (distance from center to the edge of the binary object)
+    psf_radius = numpy.sqrt(numpy.sum(binary_mask) / numpy.pi)
+    
+    # Adjust the radius increase inversely proportional to the PSF size and multiplier
+    effective_radius_increase = radius_increase / (psf_size * psf_multiplier)
+    
+    # Bump the radius by the adjusted increase
+    radius_high = psf_radius * (1 + effective_radius_increase / 100)
+    
+    # Create a new binary mask with the bumped radius, keeping the same center
+    new_binary_image = numpy.zeros_like(target_frame_norm, dtype=numpy.uint8)
+    
+    # Calculate the coordinates of the pixels within the new bumped radius
+    for y in range(new_binary_image.shape[0]):
+        for x in range(new_binary_image.shape[1]):
+            if numpy.sqrt((x - x_center)**2 + (y - y_center)**2) <= radius_high:
+                new_binary_image[y, x] = 1
+    
+    return new_binary_image
+
+
+def calculate_time_constants(photon_flux_density, quantum_efficiency, electron_charge, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
+    """
+    Computes the time constants based from photon flux density
+    
+    Parameters:
+    - photon_flux_density: The input image with the photon flux density (photon/m^2.s)
+    - quantum_efficiency: Quantum efficiency constant.
+    - q: Elementary charge constant (C).
+    - pixel_pitch: Size of a pixel (m).
+    - fill_factor: Fill factor of the photoreceptors.
+    - Idr: Dark current (A) (2D array matching the input photon_flux_density) by default 5.5fA.
+    - tau_dark: Time constant in the absence of light (s).
+    - tau_sf: Time constant of the source follower (s).
+    
+    eq:
+    Iph = η*q*Φ*p^2*ff
+
+
+    Returns:
+    - tau: Per-pixel time constants (s)
+    """
+    
+    # Step 0: Create a 2D array of the dark photocurrent
+    Idr = numpy.full(photon_flux_density.shape, Idr)
+
+    # Step 1: Compute Photocurrent I
+    I = quantum_efficiency * electron_charge * photon_flux_density * fill_factor * pixel_pitch**2
+
+    # Step 2: Compute Photoreceptor Time Constant tau_p (NOT NEEDED)
+    # denominator = numpy.maximum(I + Idr, 1e-20)  # Prevent division by zero
+    tau_pr = tau_dark * (Idr / I + Idr)
+
+    # Step 3: If tau_sf > tau_pr, use tau_pr; else, use tau_sf (Select the smallest one)
+    tau = numpy.where(tau_sf > tau_pr, tau_pr, tau_sf)
+    
+    return tau
+    
 def read_es_file(
     path: typing.Union[pathlib.Path, str]
 ) -> tuple[int, int, numpy.ndarray]:
@@ -248,70 +565,92 @@ def accumulate(
         offset=0
     )
 
-def accumulate_timesurface(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-    tau: int,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate_timesurface(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-            tau,
-        ),
-        offset=0
-    )
+# def accumulate_timesurface(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+#     tau: int,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate_timesurface(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             velocity[0],
+#             velocity[1],
+#             tau,
+#         ),
+#         offset=0
+#     )
 
-def accumulate_pixel_map(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-):
-    accumulated_pixels, event_indices_list = dvs_warping_package_extension.accumulate_pixel_map(  # type: ignore
-        sensor_size[0],
-        sensor_size[1],
-        events["t"].astype("<f8"),
-        events["x"].astype("<f8"),
-        events["y"].astype("<f8"),
-        velocity[0],
-        velocity[1],
-    )
+# def accumulate_pixel_map(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+# ):
+#     accumulated_pixels, event_indices_list = dvs_warping_package_extension.accumulate_pixel_map(  # type: ignore
+#         sensor_size[0],
+#         sensor_size[1],
+#         events["t"].astype("<f8"),
+#         events["x"].astype("<f8"),
+#         events["y"].astype("<f8"),
+#         velocity[0],
+#         velocity[1],
+#     )
     
-    # Convert event_indices_list to a numpy array if needed
-    event_indices_np = numpy.array(event_indices_list, dtype=object)
+#     # Convert event_indices_list to a numpy array if needed
+#     event_indices_np = numpy.array(event_indices_list, dtype=object)
 
-    return {
-        'cumulative_map': CumulativeMap(
-            pixels=accumulated_pixels,
-            offset=0
-        ),
-        'event_indices': event_indices_np
-    }
+#     return {
+#         'cumulative_map': CumulativeMap(
+#             pixels=accumulated_pixels,
+#             offset=0
+#         ),
+#         'event_indices': event_indices_np
+#     }
 
 
-def accumulate_cnt(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate_cnt(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-        ),
-        offset=0
-    )
+# def accumulate_cnt(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate_cnt(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             velocity[0],
+#             velocity[1],
+#         ),
+#         offset=0
+#     )
+
+def save_to_es(final_events,base_filename):
+    events_array = numpy.array(final_events)
+    filtered_events = events_array[events_array[:, 3] != 0]
+    matX =  filtered_events[:,0]
+    matY =  filtered_events[:,1]
+    matP =  filtered_events[:,2]
+    matTs = filtered_events[:,3]
+
+    nEvents = matX.shape[0]
+    x = matX.reshape((nEvents, 1))
+    y = matY.reshape((nEvents, 1))
+    p = matP.reshape((nEvents, 1))
+    ts = matTs.reshape((nEvents, 1))/1e6
+
+    events = numpy.zeros((nEvents,4))
+    events = numpy.concatenate((ts,x, y, p),axis=1).reshape((nEvents,4))
+    finalArray = numpy.asarray(events)
+    finalArray[:,0] = finalArray[:,0] - finalArray[1,0]
+    loris.write_events_to_file(finalArray, base_filename, "txyp")
+
+    
 
 def accumulate_cnt_rgb(
     sensor_size: tuple[int, int],
@@ -4347,63 +4686,63 @@ def find_best_velocity_iteratively(sensor_size: Tuple[int, int], events: numpy.n
 
 
 
-def accumulate4D(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    linear_vel: tuple[float, float],
-    angular_vel: tuple[float, float, float],
-    zoom: float,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate4D(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            linear_vel[0],
-            linear_vel[1],
-            angular_vel[0],
-            angular_vel[1],
-            angular_vel[2],
-            zoom,
-        ),
-        offset=0
-    )
+# def accumulate4D(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     linear_vel: tuple[float, float],
+#     angular_vel: tuple[float, float, float],
+#     zoom: float,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate4D(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             linear_vel[0],
+#             linear_vel[1],
+#             angular_vel[0],
+#             angular_vel[1],
+#             angular_vel[2],
+#             zoom,
+#         ),
+#         offset=0
+#     )
 
-def accumulate4D_cnt(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    linear_vel: numpy.ndarray,
-    angular_vel: numpy.ndarray,
-    zoom: numpy.ndarray,
-):
-    return CumulativeMap(
-        pixels=dvs_warping_package_extension.accumulate4D_cnt(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            linear_vel[0],
-            linear_vel[1],
-            angular_vel[0],
-            angular_vel[1],
-            angular_vel[2],
-            zoom,
-        ),
-        offset=0
-    )
+# def accumulate4D_cnt(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     linear_vel: numpy.ndarray,
+#     angular_vel: numpy.ndarray,
+#     zoom: numpy.ndarray,
+# ):
+#     return CumulativeMap(
+#         pixels=dvs_warping_package_extension.accumulate4D_cnt(  # type: ignore
+#             sensor_size[0],
+#             sensor_size[1],
+#             events["t"].astype("<f8"),
+#             events["x"].astype("<f8"),
+#             events["y"].astype("<f8"),
+#             linear_vel[0],
+#             linear_vel[1],
+#             angular_vel[0],
+#             angular_vel[1],
+#             angular_vel[2],
+#             zoom,
+#         ),
+#         offset=0
+#     )
 
 
-def geometric_transformation(
-        resolution: float, 
-        rotation_angle: float
-):
-    rotated_particles = dvs_warping_package_extension.geometricTransformation(
-        resolution, 
-        rotation_angle)
-    return rotated_particles
+# def geometric_transformation(
+#         resolution: float, 
+#         rotation_angle: float
+# ):
+#     rotated_particles = dvs_warping_package_extension.geometricTransformation(
+#         resolution, 
+#         rotation_angle)
+#     return rotated_particles
 
 
 def render(
@@ -4821,14 +5160,44 @@ def rgb_render_advanced(cumulative_map_object, l_values):
     image = Image.fromarray(rgb_image)
     return image.transpose(Image.FLIP_TOP_BOTTOM)
 
+def merge_and_sort_events(pk, pk_noise):
+    # Step 1: Create ground truth labels for pk and pk_noise
+    ground_truth_pk = numpy.ones(len(pk.p), dtype=int)  # Array with value 1 for pk
+    ground_truth_pk_noise = numpy.zeros(len(pk_noise.p), dtype=int)  # Array with value 0 for pk_noise
+
+    # Step 2: Concatenate pk and pk_noise data along with ground_truth labels
+    p_combined = numpy.concatenate((pk.p, pk_noise.p))
+    ts_combined = numpy.concatenate((pk.ts, pk_noise.ts))
+    x_combined = numpy.concatenate((pk.x, pk_noise.x))
+    y_combined = numpy.concatenate((pk.y, pk_noise.y))
+    ground_truth = numpy.concatenate((ground_truth_pk, ground_truth_pk_noise))
+
+    # Step 3: Sort by timestamp to match pk_end.sort() order
+    sort_indices = numpy.argsort(ts_combined)
+    p_sorted = p_combined[sort_indices]
+    ts_sorted = ts_combined[sort_indices]
+    x_sorted = x_combined[sort_indices]
+    y_sorted = y_combined[sort_indices]
+    ground_truth_sorted = ground_truth[sort_indices]
+
+    # Step 4: Create pk_end and assign sorted data
+    pk_end = EventBuffer(0)
+    pk_end.p = p_sorted
+    pk_end.ts = ts_sorted
+    pk_end.x = x_sorted
+    pk_end.y = y_sorted
+
+    # Return pk_end, pk, pk_noise, and the sorted ground truth array
+    return pk_end, pk, pk_noise, ground_truth_sorted
+
+
 
 def save_events_to_es(events, filename, ordering):
-    import loris
     events_array = numpy.zeros((len(events), 4))
-    events_array[:, 0] = events['t']
+    events_array[:, 0] = events['ts']
     events_array[:, 1] = events['x']
     events_array[:, 2] = events['y']
-    events_array[:, 3] = events['on'].astype(int)
+    events_array[:, 3] = events['p'].astype(int)
     final_array = numpy.asarray(events_array)
     loris.write_events_to_file(final_array, filename, ordering)
     print("File: " + filename + " converted to .es")
@@ -5540,22 +5909,22 @@ def intensity_variance(
     )
 
 
-def intensity_variance_ts(
-    sensor_size: tuple[int, int],
-    events: numpy.ndarray,
-    velocity: tuple[float, float],
-    tau: int,
-):
-    return dvs_warping_package_extension.intensity_variance_ts(  # type: ignore
-        sensor_size[0],
-        sensor_size[1],
-        events["t"].astype("<f8"),
-        events["x"].astype("<f8"),
-        events["y"].astype("<f8"),
-        velocity[0],
-        velocity[1],
-        tau,
-    )
+# def intensity_variance_ts(
+#     sensor_size: tuple[int, int],
+#     events: numpy.ndarray,
+#     velocity: tuple[float, float],
+#     tau: int,
+# ):
+#     return dvs_warping_package_extension.intensity_variance_ts(  # type: ignore
+#         sensor_size[0],
+#         sensor_size[1],
+#         events["t"].astype("<f8"),
+#         events["x"].astype("<f8"),
+#         events["y"].astype("<f8"),
+#         velocity[0],
+#         velocity[1],
+#         tau,
+#     )
 
 @dataclasses.dataclass
 class CumulativeMap:
@@ -5704,40 +6073,40 @@ class CumulativeMap:
 #     return None
 
 
-def generate_3Dlandscape(events: numpy.ndarray,
-                       sensor_size: Tuple[int, int],
-                       linear_velocity: numpy.ndarray, 
-                       angular_velocity: numpy.ndarray, 
-                       scale: numpy.ndarray, 
-                       tmax: float,
-                       savefileto: str) -> None:
-    nvel = len(angular_velocity)
-    trans=0
-    rot=0
-    variance_loss = numpy.zeros((nvel*nvel,nvel))
-    for iVelz in tqdm(range(nvel)):
-        wx              = 0.0 / 1e6
-        wy              = 0.0 / 1e6
-        wz              = (angular_velocity[iVelz] / tmax) / 1e6
-        for iVelx in range(nvel):
-            vx          = linear_velocity[iVelx] / 1e6
-            for iVely in range(nvel):
-                vy          = linear_velocity[iVely] / 1e6
-                warped_image = accumulate4D(sensor_size=sensor_size,
-                                            events=events,
-                                            linear_vel=(vx,vy),
-                                            angular_vel=(wx,wy,wz),
-                                            zoom=0)
-                var = variance_loss_calculator(warped_image.pixels)
-                variance_loss[trans,rot] = var
-                trans+=1
-        rot+=1
-        trans=0
+# def generate_3Dlandscape(events: numpy.ndarray,
+#                        sensor_size: Tuple[int, int],
+#                        linear_velocity: numpy.ndarray, 
+#                        angular_velocity: numpy.ndarray, 
+#                        scale: numpy.ndarray, 
+#                        tmax: float,
+#                        savefileto: str) -> None:
+#     nvel = len(angular_velocity)
+#     trans=0
+#     rot=0
+#     variance_loss = numpy.zeros((nvel*nvel,nvel))
+#     for iVelz in tqdm(range(nvel)):
+#         wx              = 0.0 / 1e6
+#         wy              = 0.0 / 1e6
+#         wz              = (angular_velocity[iVelz] / tmax) / 1e6
+#         for iVelx in range(nvel):
+#             vx          = linear_velocity[iVelx] / 1e6
+#             for iVely in range(nvel):
+#                 vy          = linear_velocity[iVely] / 1e6
+#                 warped_image = accumulate4D(sensor_size=sensor_size,
+#                                             events=events,
+#                                             linear_vel=(vx,vy),
+#                                             angular_vel=(wx,wy,wz),
+#                                             zoom=0)
+#                 var = variance_loss_calculator(warped_image.pixels)
+#                 variance_loss[trans,rot] = var
+#                 trans+=1
+#         rot+=1
+#         trans=0
     
-    reshaped_variance_loss = variance_loss.reshape(nvel, nvel, nvel)
-    sio.savemat(savefileto+"reshaped_variance_loss.mat",{'reshaped_variance_loss':numpy.asarray(reshaped_variance_loss)})
-    render_3d(reshaped_variance_loss)
-    return None
+#     reshaped_variance_loss = variance_loss.reshape(nvel, nvel, nvel)
+#     sio.savemat(savefileto+"reshaped_variance_loss.mat",{'reshaped_variance_loss':numpy.asarray(reshaped_variance_loss)})
+#     render_3d(reshaped_variance_loss)
+#     return None
 
 
 def random_velocity(opt_range):
