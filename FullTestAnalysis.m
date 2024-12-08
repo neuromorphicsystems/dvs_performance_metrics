@@ -47,6 +47,7 @@ epochs = 5;
 BW_SNR_all = cell(length(Tests),1);
 RSNR_all =  cell(length(Tests),1);
 Al_RSNR_all =  cell(length(Tests),1);
+Al_SoS_all =  cell(length(Tests),1);
 leg = [];
 
 
@@ -79,7 +80,7 @@ for ti = 1:length(Tests)
         BW_SNR = zeros(1,length(vector));
         RSNR =  zeros(1,length(vector));
         Al_RSNR = zeros(1,length(vector));
-
+        Al_SoS = zeros(1,length(vector));
 
         for vi = 1:length(vector)
             n_ep = 0;
@@ -175,9 +176,16 @@ for ti = 1:length(Tests)
                 
                 % Align events according to target motion in frame
                 [all_events_aligned,filtered_inds,target_time_al] = align_Events(all_events,simulation_data,matrix_size);
+                target_time_al(target_time_al<0)=0;
                 target_time_al = target_time_al'*dt;
                 sig_aligned_ind = sig_ind(filtered_inds);
                 [all_rate_aligned_stack,signal_rate_aligned_stack,bg_rate_aligned_stack] = create_rate_image(all_events_aligned,matrix_size,[],sig_aligned_ind);
+
+                % sharpness metric
+                H=full(sparse(all_events_aligned.x(sig_aligned_ind),all_events_aligned.y(sig_aligned_ind),1,matrix_size(1),matrix_size(2)));
+                Sum_of_squares = sum(H(:).^2.*target_time_al(:)/T);%sum(exp(-H(:)).*target_time_al(:)/T);
+                disp([' - aligned Sharpness metric = ', num2str(Sum_of_squares)])
+                Al_SoS(vi) = Al_SoS(vi) + Sum_of_squares;
 
                 % Calculate Rate SNR metric for aligned event cloud - TO FIX. Not a good metric...
                 [al_rsnr, RateImage_Sig_aligned_med, RateImage_BG_aligned_med]= calc_RSNR(signal_rate_aligned_stack(:,:,1),bg_rate_aligned_stack(:,:,1),matrix_size);
@@ -197,6 +205,7 @@ for ti = 1:length(Tests)
         BW_SNR_all{ti} = BW_SNR/n_ep;
         RSNR_all{ti} = RSNR/n_ep;
         Al_RSNR_all{ti} = Al_RSNR/n_ep;
+        Al_SoS_all{ti} = Al_SoS/n_ep;
 
         figure(1)
         loglog(vector,BW_SNR_all{ti}); hold on; grid on;
@@ -210,9 +219,9 @@ for ti = 1:length(Tests)
         ylabel('Rate SNR')
 
         figure(3)
-        loglog(vector,Al_RSNR_all{ti}); hold on; grid on;
+        loglog(vector,Al_SoS_all{ti}); hold on; grid on;
         xlabel(replace(sanned_param{2},'_',' '));
-        ylabel('Aligned Rate SNR')
+        ylabel('Aligned Sharpness')
         drawnow
         
         disp(['Done evaluating results from ',Tests(ti).name]);

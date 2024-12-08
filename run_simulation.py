@@ -381,6 +381,7 @@ def run_simulation(config_file_name,epoc):
 
 if __name__ == '__main__':
     ''' Example:
+    python run_simulation.py -filename "Test_debug"
     python run_simulation.py -filename "T1_1"
     python run_simulation.py -filename "T1_2"
     python run_simulation.py -filename "T1_3"
