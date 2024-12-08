@@ -404,22 +404,17 @@ def create_binary_mask_with_psf(target_frame_norm, psf_size, psf_multiplier, rad
     return new_binary_image
 
 
-def calculate_time_constants(photon_flux_density, quantum_efficiency, electron_charge, pixel_pitch, fill_factor, Idr, tau_dark, tau_sf):
+def calculate_time_constants(Image_photocurrent, Idr, tau_dark, tau_sf):
     """
     Computes the time constants based from photon flux density
     
     Parameters:
     - photon_flux_density: The input image with the photon flux density (photon/m^2.s)
-    - quantum_efficiency: Quantum efficiency constant.
-    - q: Elementary charge constant (C).
-    - pixel_pitch: Size of a pixel (m).
-    - fill_factor: Fill factor of the photoreceptors.
     - Idr: Dark current (A) (2D array matching the input photon_flux_density) by default 5.5fA.
     - tau_dark: Time constant in the absence of light (s).
     - tau_sf: Time constant of the source follower (s).
     
-    eq:
-    Iph = η*q*Φ*p^2*ff
+
 
 
     Returns:
@@ -427,14 +422,11 @@ def calculate_time_constants(photon_flux_density, quantum_efficiency, electron_c
     """
     
     # Step 0: Create a 2D array of the dark photocurrent
-    Idr = numpy.full(photon_flux_density.shape, Idr)
-
-    # Step 1: Compute Photocurrent I
-    I = quantum_efficiency * electron_charge * photon_flux_density * fill_factor * pixel_pitch**2
+    Idr = numpy.full(Image_photocurrent.shape, Idr)
 
     # Step 2: Compute Photoreceptor Time Constant tau_p (NOT NEEDED)
     # denominator = numpy.maximum(I + Idr, 1e-20)  # Prevent division by zero
-    tau_pr = tau_dark * (Idr / I + Idr)
+    tau_pr = tau_dark * (Idr / Image_photocurrent)
 
     # Step 3: If tau_sf > tau_pr, use tau_pr; else, use tau_sf (Select the smallest one)
     tau = numpy.where(tau_sf > tau_pr, tau_pr, tau_sf)

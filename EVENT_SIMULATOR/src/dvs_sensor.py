@@ -189,8 +189,7 @@ class DvsSensor:
         if img.shape[1] != self.shape[1] or img.shape[0] != self.shape[0]:
             print("Error: the size of the image doesn't match with the sensor ")
             return
-        self.last_v = np.log(img + 1) #log(I+Idark)
-        self.cur_v = np.log(img + 1) #log(I+Idark)
+
         
         # ####################### BEFORE ###########################
         # self.tau_p = self.tau * 1e3 / (img + 1) #this need to be updated
@@ -202,14 +201,25 @@ class DvsSensor:
         # ###################### BRIAN THESIS ######################
         # I = self.quantum_efficiency * self.q * self.pixel_pitch**2 * img
         # self.tau_p = self.tau_dark * (self.Idr  / (I + self.Idr))
+                # Step 1: Compute Photocurrent I
         
         
+        # eq:
+        #    - quantum_efficiency: Quantum efficiency constant.
+        #    - q: Elementary charge constant (C).
+        #    - pixel_pitch: Size of a pixel (m).
+        #    - fill_factor: Fill factor of the photoreceptors.
+        # Iph = η*q*Φ*p^2*ff
+        img_I = self.quantum_efficiency * self.q * img * self.fill_factor * self.pixel_pitch**2
+        # add dark current
+        img_I = img_I + self.Idr
+        
+
+        self.last_v = np.log(img_I) #log(I+Idark)
+        self.cur_v = np.log(img_I) #log(I+Idark)
+
         ################################ FINAL TIME CONSTANT CALCULATION ###################################
-        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
-                                                                  self.quantum_efficiency, 
-                                                                  self.q, 
-                                                                  self.pixel_pitch, 
-                                                                  self.fill_factor, 
+        self.tau_p = dvs_warping_package.calculate_time_constants(img_I, 
                                                                   self.Idr, 
                                                                   self.tau_dark, 
                                                                   self.tau_sf)
@@ -366,20 +376,28 @@ class DvsSensor:
         if len(ind[0]) == 0:
             print("ERROR: update: flux image with only zeros")
             return
-        img_l[ind] = np.log(img[ind] + 1) # this need to be updated
+
+        # Step 1: Compute Photocurrent I
+        # eq:
+        #    - quantum_efficiency: Quantum efficiency constant.
+        #    - q: Elementary charge constant (C).
+        #    - pixel_pitch: Size of a pixel (m).
+        #    - fill_factor: Fill factor of the photoreceptors.
+        # Iph = η*q*Φ*p^2*ff
+        img_I = self.quantum_efficiency * self.q * img * self.fill_factor * self.pixel_pitch**2
+        # add dark current
+        img_I = img_I + self.Idr
+        
+        img_l[ind] = np.log(img_I[ind])
 
         # # Update time constants - self.tau defined at 1 klux
         # ####################### BEFORE ###########################
         # self.tau_p[ind] = self.tau  / (img[ind] + 1) * 1e3 # this need to be updated
-        
-        
+
+
         # TODO: Add imgA output of I
         ################################ FINAL TIME CONSTANT CALCULATION ###################################
-        self.tau_p = dvs_warping_package.calculate_time_constants(img, 
-                                                                  self.quantum_efficiency, 
-                                                                  self.q, 
-                                                                  self.pixel_pitch, 
-                                                                  self.fill_factor, 
+        self.tau_p = dvs_warping_package.calculate_time_constants(img_I,  
                                                                   self.Idr, 
                                                                   self.tau_dark, 
                                                                   self.tau_sf)
@@ -534,6 +552,5 @@ class DvsSensor:
         pk_end, pk, pk_noise, ground_truth_sorted = dvs_warping_package.merge_and_sort_events(pk, pk_noise)
         
         return pk_end, pk, pk_noise, ground_truth_sorted
-
 
 
