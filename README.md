@@ -49,6 +49,20 @@ tmux new-session -d -s performance
 ## tmux: access a session
 tmux attach-session -t performance
 ## tmux: exit a session
-Ctrl+D
+Ctrl+B -> d
 
+## tmux: new terminal
+Ctrl+B -> c
+## tmux: see active terminals
+Ctrl+B -> w
+## tmux: name terminal
+Crtl+B -> ,
 
+# to do in each terminal:
+Ctrl+B -> c
+Crtl+B -> , _name_
+conda activate dvs_performance_metric && python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24"
+
+## tmux: show status
+htop
+# exit:
