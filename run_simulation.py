@@ -29,11 +29,10 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-DO_PLOTS    = 0 # Are we ploting or are we not - turn off for server running
+DO_PLOTS    = 1 # Are we ploting or are we not - turn off for server running
 SAVE_FRAMES = 0 # Enable/Disable frame saving
 output_path = "OUTPUT"
 
-EPOCH       = 1 #how many time you wanna run the same experiment
 blankEvRun = 0.5 # time in [sec] to run event simulation "blank" to rnadomize noise statistics
 
 bgnp = 0.2 # ON event noise rate in events / pixel / s
@@ -105,7 +104,8 @@ def run_simulation(config_file_name,epoc):
             'imaging_los_speed': Dynamics['imaging_los_speed'],
             'binary_target_mask': (initial_binary_mask>0),
             'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
-            'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation'])
+            'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
+            'image': initial_frame
         }
         simulation_data = []
         simulation_data.append(current_data)
@@ -178,7 +178,8 @@ def run_simulation(config_file_name,epoc):
         while counter < blankFrames:
             dvs.update(initial_frame, dt_us)
             counter += 1
-
+            #if DO_PLOTS:
+            #    ed.update(ev_temp, dt_us)
 
         ######################################## The algorithm start here #######################################
         dvs_warping_package.print_message(f"t_velocity: {SceneParams['t_velocity']}", color='yellow', style='bold')
@@ -228,6 +229,7 @@ def run_simulation(config_file_name,epoc):
             ev.ts = ev.ts[rng]                
             #ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
             ev.i = len(rng) # why did I need to add this? what changed in the event simulator?
+            
             #ii = len(ev_full.x)
             ev_full.increase_ev(ev)
 
@@ -265,12 +267,13 @@ def run_simulation(config_file_name,epoc):
                 'imaging_los_speed': Dynamics['imaging_los_speed'],
                 'binary_target_mask': binary_target_mask,
                 'pixel_offset_x': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_azimuth']-Dynamics['t_azimuth']),
-                'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation']),
-                'x': ev.x, # get rid of me
-                'y': ev.y,
-                'p': ev.p,
-                'ts': ev.ts,
-                'l': final_l
+                'pixel_offset_y': OpticParams['focal_length']/SensorParams['pixel_pitch']*(Dynamics['i_elevation']-Dynamics['t_elevation'])
+                #'image': pixel_frame
+                #'x': ev.x, # get rid of me
+                #'y': ev.y,
+                #'p': ev.p,
+                #'ts': ev.ts,
+                #'l': final_l
             }
             simulation_data.append(current_data)
             
@@ -349,7 +352,7 @@ def run_simulation(config_file_name,epoc):
 
             elif DO_PLOTS:
                 # plot event frame in own frame
-                #ed.update(ev, dt_us)
+                ed.update(ev, dt_us)
 
                 # plot intensity frame in first subplot
                 imgg1.set_array(pixel_frame)
@@ -383,25 +386,11 @@ if __name__ == '__main__':
     ''' Example:
     python run_simulation.py -filename "Test_debug"
     python run_simulation.py -filename "T1_1"
-    python run_simulation.py -filename "T1_2"
-    python run_simulation.py -filename "T1_3"
-    python run_simulation.py -filename "T1_4"
-    python run_simulation.py -filename "T1_5"
-    python run_simulation.py -filename "T1_6"
     python run_simulation.py -filename "frequency_amplitude_heatmap_amp_2"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_4"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_6"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_8"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_10"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_12"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_14"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_16"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_18"
-    python run_simulation.py -filename "frequency_amplitude_heatmap_amp_20"
     '''
 
     parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
-    parser.add_argument('-filename', type=str, default="frequency_amplitude_heatmap_amp_4", 
+    parser.add_argument('-filename', type=str, default="blink_freq_contrast_heatmap_50", 
                         help="Name of the configuration file")
     args = parser.parse_args()
 
