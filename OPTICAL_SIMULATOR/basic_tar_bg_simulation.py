@@ -280,7 +280,7 @@ def make_BG_frame(width, height, multiplier, BgParams, pixel_shift):
         # X_struct = 1j * 2 * np.pi * (BgParams['bg_spatial_freq'] * BgParams['fn_fac'] * BgParams['amp_rx'] * ([BgParams['X'] + pixel_shift[0],np.newaxis]))
         # Y_struct = 1j * 2 * np.pi * (BgParams['fn_fac'] * BgParams['amp_ry'] * BgParams['bg_spatial_freq'] * ([BgParams['Y'] + pixel_shift[1],np.newaxis]))
         # return 2 * BgParams['Norm_f'] * np.sum((np.real(np.exp(X_struct + Y_struct)) + 1) / 2, axis=2)
-        frame_out = np.zeros([int(height),int(width)],float)
+        frame_out = np.zeros([int(multiplier * height),int(multiplier * width)],float)
         for k in range(len(BgParams['fn_fac'])):
             X_comp = BgParams['bg_spatial_freq'] * BgParams['fn_fac'][k] * BgParams['amp_rx'][k] * (BgParams['X'] + pixel_shift[0])
             Y_comp = BgParams['bg_spatial_freq'] * BgParams['fn_fac'][k] * BgParams['amp_ry'][k] * (BgParams['Y'] + pixel_shift[1])
