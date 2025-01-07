@@ -26,30 +26,32 @@
 
 %%
 clear all
-nat = '_nat';
+
 addpath("PERFORMANCE_METRICS\metrics_calc_functions\")
 % addpath("..\event_stream\matlab\")
 Data_Root_Dir = 'C:\Users\30067913\Data\performance_metric_sim\';
-FullTestName = 'frequency_amplitude_heatmap';
-vec = {'0','2','4','6','8','10','12','14','16','18','20'};
-Tests = struct('name','','folder','','date','','bytes',0,'isdir',0,'datenum',0);
-ci = 1;
-for vi =1:length(vec)
-    if ~isempty(dir([Data_Root_Dir,FullTestName,'*_',vec{vi},nat]))
-        Tests(ci) = dir([Data_Root_Dir,FullTestName,'*_',vec{vi},nat]);
-        ci = ci+1;
-    end
-end
-% FullTestName = 'T1';
-% Tests = dir([Data_Root_Dir,FullTestName,'*']);
+% FullTestName = 'frequency_amplitude_heatmap';
+% vec = {'0','2','4','6','8','10','12','14','16','18','20'};
+% Tests = struct('name','','folder','','date','','bytes',0,'isdir',0,'datenum',0);
+% ci = 1;
+% for vi =1:length(vec)
+%     if ~isempty(dir(['OUTPUT\',FullTestName,'*_',vec{vi},'_nat']))
+%         Tests(ci) = dir(['OUTPUT\',FullTestName,'*_',vec{vi},'_nat']);
+%         ci = ci+1;
+%     end
+% end
+
+FullTestName = 'T1';
+Tests = dir([Data_Root_Dir,FullTestName,'*']);
 epochs = 5;
-pix_shift_for_ref = 50;
-config_data_file = dir([Data_Root_Dir,Tests(2).name,'\*as_run.ini']);
+pix_shift_for_ref = 75;
+config_data_file = dir([Data_Root_Dir,Tests(1).name,'\*as_run.ini']);
 [test_data,sanned_param] = readINI([config_data_file.folder,'\',config_data_file.name]);
 vec_len = length(test_data.(sanned_param{1}).(sanned_param{2}));
 
 % Inisilized full run metrics maps
 BW_SNR_all = cell(length(Tests),1);
+BW_SNR_all_ON = cell(length(Tests),1);
 RSNR_all =  cell(length(Tests),1);
 Al_RSNR_all =  cell(length(Tests),1);
 Al_SoS_all =  cell(length(Tests),1);
@@ -88,6 +90,7 @@ for ti = 1:length(Tests)
 
     % Inisilized metrics data for this test
     BW_SNR = zeros(1,length(vector));
+    BW_SNR_ON = zeros(1,length(vector));
     RSNR =  zeros(1,length(vector));
     Al_RSNR = zeros(1,length(vector));
     Al_SoS = zeros(1,length(vector));
@@ -129,17 +132,19 @@ for ti = 1:length(Tests)
 
             n_ep = n_ep+1;
 
+
             % Read data and convert to event cloud for processing
             events.x = event_data(:,1)+1;
             events.y = event_data(:,2)+1;
             events.on = event_data(:,3);
             events.t = event_data(:,4);
-            events.t = events.t - events.t(1) + mod(events.t(1),100);
+            events.t = events.t - events.t(1) + mod(events.t(1),100) + last_t;
             events.label = event_data(:,5);
+            
 
             dt = simulation_data{2}.t - simulation_data{1}.t;
             T = simulation_data{end-1}.t;
-
+            
             ind_to_remove = events.t==0; % check if any t=0 values are there - we dont trust these
             if any(find(ind_to_remove))
                 events.x = events.x(~ind_to_remove);
@@ -160,14 +165,15 @@ for ti = 1:length(Tests)
             % bg.y = all_events.y(~sig_ind);
             % bg.t = all_events.t(~sig_ind);
 
+
             % get target mask and calculate time each pixel spends on the target
             target_masks = cellfun(@(x)x.binary_target_mask ,simulation_data(1:(end-1)),'UniformOutput' ,false);
-
+            
             sig_ref_ind = [sig_ref_ind', zeros(size(sig_ind))']';
-
+            
             for k = 1:length(target_masks)
                 target_time = target_time + double(target_masks{k});
-
+                
                 target_ref_masks{k} = target_masks{k};
                 target_ref_masks{k}(1:(end-pix_shift_for_ref+1),1:(end-pix_shift_for_ref+1)) =  target_masks{k}(pix_shift_for_ref:end,pix_shift_for_ref:end);
                 target_ref_masks{k}((end-pix_shift_for_ref+1):end,:) = 0;
@@ -182,7 +188,6 @@ for ti = 1:length(Tests)
                     end
                 end
             end
-
 
             last_t = last_t + T*1e6;
 
@@ -200,18 +205,27 @@ for ti = 1:length(Tests)
         % Bg_ref_event_count = cellfun(@length,bg_ref_rate_stack(:,:,1));
         Signal_ref_event_count = full(sparse(all_events.x(sig_ref_ind==1),all_events.y(sig_ref_ind==1),1,matrix_size(1),matrix_size(2)));
         Bg_ref_event_count = full(sparse(all_events.x(sig_ref_ind==0),all_events.y(sig_ref_ind==0),1,matrix_size(1),matrix_size(2)));
+        Signal_ref_event_count_ON = full(sparse(all_events.x(sig_ref_ind & all_events.on),all_events.y(sig_ref_ind  & all_events.on),1,matrix_size(1),matrix_size(2)));
+        Bg_ref_event_count_ON = full(sparse(all_events.x(~sig_ref_ind & all_events.on),all_events.y(~sig_ref_ind  & all_events.on),1,matrix_size(1),matrix_size(2)));
 
         % Calculate the Bandwidth SNR metric
         disp([sanned_param{2},' = ', num2str(vector(vi)),', all epochs results:']);
 
+
         target_ref_time(target_ref_time<(10*dt)) = 0;
         mean_Sig_Ref_event_rate = Signal_ref_event_count./target_ref_time;
-
         mean_BG_Ref_event_rate = Bg_ref_event_count./(T-target_ref_time);
         inds = (~isnan(mean_Sig_Ref_event_rate) & ~isinf(mean_Sig_Ref_event_rate));
         diffs = (mean_Sig_Ref_event_rate(inds)-mean_BG_Ref_event_rate(inds));
         bw_snr_base = sum(diffs(diffs>0));
         disp([' - BW_SNR base = ',num2str(bw_snr_base)]);
+
+        mean_Sig_Ref_event_rate = Signal_ref_event_count_ON./target_ref_time;
+        mean_BG_Ref_event_rate = Bg_ref_event_count_ON./(T-target_ref_time);
+        inds = (~isnan(mean_Sig_Ref_event_rate) & ~isinf(mean_Sig_Ref_event_rate));
+        diffs = (mean_Sig_Ref_event_rate(inds)-mean_BG_Ref_event_rate(inds));
+        bw_snr_base_ON = sum(diffs(diffs>0));
+        disp([' - BW_SNR base only ON = ',num2str(bw_snr_base_ON)]);
 
         % Create a rate "stack" (event rate vector for each and every pixel
         % [all_rate_stack,signal_rate_stack,bg_rate_stack] = create_rate_image(all_events,matrix_size,[],sig_ind);
@@ -220,6 +234,8 @@ for ti = 1:length(Tests)
         % Bg_event_count = cellfun(@length,bg_rate_stack(:,:,1));
         Signal_event_count = full(sparse(all_events.x(sig_ind==1),all_events.y(sig_ind==1),1,matrix_size(1),matrix_size(2)));
         Bg_event_count = full(sparse(all_events.x(sig_ind==0),all_events.y(sig_ind==0),1,matrix_size(1),matrix_size(2)));
+        Signal_event_count_ON = full(sparse(all_events.x(sig_ind  & all_events.on),all_events.y(sig_ind  & all_events.on),1,matrix_size(1),matrix_size(2)));
+        Bg_event_count_ON = full(sparse(all_events.x(~sig_ind  & all_events.on),all_events.y(~sig_ind  & all_events.on),1,matrix_size(1),matrix_size(2)));
 
         target_time(target_time<(10*dt)) = 0;
         mean_Signal_event_rate = Signal_event_count./target_time;
@@ -229,9 +245,16 @@ for ti = 1:length(Tests)
         bw_snr = max(0, sum(diffs(diffs>0)) - bw_snr_base);
         disp([' - BW_SNR = ',num2str(bw_snr)]);
         BW_SNR(vi) = BW_SNR(vi) + bw_snr; % average value
-        % Add some sort of dysplay here for debuging
 
-                % figure;
+        mean_Signal_event_rate = Signal_event_count_ON./target_time;
+        mean_BG_event_rate = Bg_event_count_ON./(T-target_time);
+        inds = (~isnan(mean_Signal_event_rate) & ~isinf(mean_Signal_event_rate));
+        diffs = (mean_Signal_event_rate(inds)-mean_BG_event_rate(inds));
+        bw_snr_ON = max(0, sum(diffs(diffs>0)) - bw_snr_base_ON);
+        disp([' - BW_SNR only ON events = ',num2str(bw_snr_ON)]);
+        BW_SNR_ON(vi) = BW_SNR_ON(vi) + bw_snr_ON; % average value
+
+        % figure;
         % imagesc(mean_Signal_event_rate); title([Tests(ti).name,' ',num2str(vector(vi)),' signal event rate'])
         % figure;
         % imagesc(mean_Sig_Ref_event_rate); title([Tests(ti).name,' ',num2str(vector(vi)),' bg event rate'])
@@ -282,30 +305,31 @@ for ti = 1:length(Tests)
 
     end
 
-
     if length(vector)==1
         BW_SNR_all{ti} = repmat(BW_SNR,vec_len,1);
+        BW_SNR_all_ON{ti} = repmat(BW_SNR_ON,vec_len,1);
         % % RSNR_all{ti} = repmat(RSNR/n_ep,vec_len,1);
         % % Al_RSNR_all{ti} = repmat(Al_RSNR/n_ep,vec_len,1);
-        % % Al_SoS_all{ti} = repmat(Al_SoS/n_ep,vec_len,1);
+        % % Al_SoS_all{ti} = repmat(Al_SoS/n_ep,vec_len,1);        
     else
         BW_SNR_all{ti} = BW_SNR;
+        BW_SNR_all_ON{ti} = BW_SNR_ON;
         % % RSNR_all{ti} = RSNR/n_ep;
         % % Al_RSNR_all{ti} = Al_RSNR/n_ep;
         % % Al_SoS_all{ti} = Al_SoS/n_ep;
     end
 
-    figure(1)
-    loglog(vector,BW_SNR_all{ti}); hold on; grid on;
+    figure(111)
+    loglog(vector,BW_SNR_all{ti}.^-1); hold on; grid on;
     leg = [leg,{replace(Tests(ti).name,'_',' ')}];
     xlabel(replace(sanned_param{2},'_',' '));
     ylabel('\tau_d_e_t_c_t_i_o_n')
-
+    drawnow;
     % figure(2)
     % loglog(vector,RSNR_all{ti}); hold on; grid on;
     % xlabel(replace(sanned_param{2},'_',' '));
     % ylabel('Rate SNR')
-    %
+    % 
     % figure(3)
     % loglog(vector,Al_SoS_all{ti}); hold on; grid on;
     % xlabel(replace(sanned_param{2},'_',' '));
@@ -314,7 +338,7 @@ for ti = 1:length(Tests)
 
     disp(['Done evaluating results from ',Tests(ti).name]);
     disp(' ');
-    save(['vib_results',nat,'.mat'],"Tests","BW_SNR_all","vector")
+    save('temp_results_nat.mat',"BW_SNR_all","BW_SNR_all_ON","RSNR_all","Al_RSNR_all","Al_SoS_all","vector")
 
 end
 figure(1)
@@ -324,23 +348,22 @@ legend(leg)
 figure(3)
 legend(leg)
 
-% Tau_Detect_all_mat = zeros(13,11);
-% Tau_Detect_all_mat(1:13,1) = Tau_Detect_all{1};
-% Al_SoS_mat(1:13,1) = repmat(Tau_Detect_all{1},length(Tau_Detect_all{2}),1);
-for kk = 1:length(BW_SNR_all)
-    BW_SNR_all_mat(:,kk) = BW_SNR_all{kk};
-    % Al_SoS_mat(:,kk) = Al_SoS_all{kk};
-end
-amp_vec = cellfun(@(x)str2num(x),vec);
-freq_vec = vector;
-figure; imagesc(amp_vec,freq_vec,BW_SNR_all_mat)
-set(gca,'YScale','log')
-xlabel('Vibration amplitude [pixels]')
-ylabel('Vibration frequency [Hz]')
-title('Detection frequency [Hz] with clutter')
-colormap hot
-colorbar
-%
+% BW_SNR_mat(1:13,1) = repmat(BW_SNR_all{1},length(BW_SNR_all{2}),1);
+% Al_SoS_mat(1:13,1) = repmat(Al_SoS_all{1},length(BW_SNR_all{2}),1);
+% for kk = 1:length(BW_SNR_all)
+%     BW_SNR_mat(:,kk) = BW_SNR_all{kk};
+%     Al_SoS_mat(:,kk) = Al_SoS_all{kk};
+% end
+% amp_vec = cellfun(@(x)str2num(x),vector);
+% freq_vec = vector;
+% figure; imagesc(amp_vec,freq_vec,BW_SNR_mat)
+% set(gca,'YScale','log')
+% xlabel('Vibration amplitude [pixels]')
+% ylabel('Vibration frequency [Hz]')
+% title('Sensing frequency [Hz]')
+% colormap hot
+% colorbar
+% 
 % figure; imagesc(amp_vec,freq_vec,Al_SoS_mat)
 % set(gca,'YScale','log')
 % colormap hot
@@ -352,10 +375,19 @@ colorbar
 % plot(val-max(val)/2,BW_SNR); %hold on
 % plot(val-max(val)/2,Al_BWSNR); legend('not aligned RateSNR','aligned RateSNR');
 
-% figure
-% loglog((vector-8+0.001)*50e-3/(300*4.86e-6),Tau_Detect_all{1}.^-1); hold on; grid on;
-% loglog((vector-8+0.001)*50e-3/(300*4.86e-6),Tau_Detect_all{2}.^-1);
-% loglog((vector-8+0.001)*50e-3/(300*4.86e-6),Tau_Detect_all{3}.^-1);
-% legend('3 pixels (PSF size)','5 pixels','7 pixels')
-% xlabel('pixels/sec');
-% ylabel('\tau_d_e_t_c_t_i_o_n [sec]')
+    figure
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all{1}.^-1); hold on; grid on;
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all{2}.^-1); 
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all{3}.^-1); 
+    legend('3 pixels (PSF size)','5 pixels','7 pixels')
+    xlabel('pixels/sec');
+    ylabel('\tau_d_e_t_c_t_i_o_n [sec]')
+
+       figure
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all_ON{1}.^-1); hold on; grid on;
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all_ON{2}.^-1); 
+    semilogy((vector-8+0.001)*50e-3/(300*4.86e-6),BW_SNR_all_ON{3}.^-1); 
+    legend('3 pixels (PSF size)','5 pixels','7 pixels')
+    xlabel('pixels/sec');
+    ylabel('\tau_d_e_t_c_t_i_o_n [sec]')
+    title('Only ON events')
