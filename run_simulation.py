@@ -38,8 +38,8 @@ blankEvRun = 0.5 # time in [sec] to run event simulation "blank" to rnadomize no
 bgnp = 0.2 # ON event noise rate in events / pixel / s
 bgnn = 0.2 # OFF event noise rate in events / pixel / s
 
-def run_simulation(config_file_name,epoc):
-    random.seed(epoc)
+def run_simulation(config_file_name,epochs):
+    random.seed(1)
     ini_file = f"config/{config_file_name}.ini"
 
     InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams, scanned_params = read_ini_file(ini_file)
@@ -79,8 +79,13 @@ def run_simulation(config_file_name,epoc):
 
         dvs_warping_package.print_message(f"Loop 1: {param_value_index}", color='yellow', style='bold')
 
-        # Create the event buffer and arbiter
-        ev_full = EventBuffer(1)
+        # Create the event buffer and arbiter and initialize all event buffer for all epochs
+        final_events = [None] * epochs
+        ev_full = [None] * epochs
+        dvs = [None] * epochs
+        ea = [None] * epochs
+        for ep in range(epochs):
+            ev_full[ep] = EventBuffer(1)
         
         # Initialize simulation data function
         frame_size = [SensorParams['height'], SensorParams['width']]
@@ -95,6 +100,7 @@ def run_simulation(config_file_name,epoc):
         binary_target_mask_memory[:,:,0] = initial_binary_mask
 
         # Store the target initial data
+
         current_data = {
             't': Dynamics['t'],
             'i_azimuth': Dynamics['i_azimuth'],
@@ -109,9 +115,9 @@ def run_simulation(config_file_name,epoc):
         }
         simulation_data = []
         simulation_data.append(current_data)
-        final_events     = []  
-        all_labels = []
-        
+        for ep in range(epochs):
+            final_events[ep]     = []      
+    
         # Create the initial frame and setup simulation plots
         if DO_PLOTS:
             if param_value_index == 0:
@@ -122,30 +128,32 @@ def run_simulation(config_file_name,epoc):
                 plt.colorbar(imgg1, ax=ax1)
 
         # Initialize DVS sensor
-        dvs = DvsSensor("MySensor")
-        dvs.initCamera(frame_size[1], 
-                       frame_size[0],
-                       lat=SensorParams['latency']*1e6, 
-                       jit=SensorParams['latency_jitter']*1e6, 
-                       ref=SensorBiases['refr'],
-                       tau=SensorParams['tau_dark']*1e6, 
-                       th_pos=SensorBiases['diff_on'], 
-                       th_neg=SensorBiases['diff_off'], 
-                       th_noise=SensorParams['threshold_noise'],
-                       bgnp=bgnp, bgnn=bgnn, 
-                       Idr=SensorParams['I_dark'],
-                       pp=SensorParams['pixel_pitch'], 
-                       qe=SensorParams['QE'], 
-                       ff=SensorParams['fill_factor'],
-                       tsf=SensorParams['tau_sf']*1e6, 
-                       tdr=SensorParams['tau_dark']*1e6, 
-                       q=1.602176634e-19)
-        
-        # Check with different noise models:
-        #dvs.init_bgn_hist("EVENT_SIMULATOR/data/noise_pos_161lux.npy", "EVENT_SIMULATOR/data/noise_neg_161lux.npy")
+        for ep in range(epochs): 
+            dvs[ep] = DvsSensor("MySensor")
+            dvs[ep].initCamera(frame_size[1], 
+                        frame_size[0],
+                        lat=SensorParams['latency']*1e6, 
+                        jit=SensorParams['latency_jitter']*1e6, 
+                        ref=SensorBiases['refr'],
+                        tau=SensorParams['tau_dark']*1e6, 
+                        th_pos=SensorBiases['diff_on'], 
+                        th_neg=SensorBiases['diff_off'], 
+                        th_noise=SensorParams['threshold_noise'],
+                        bgnp=bgnp, bgnn=bgnn, 
+                        Idr=SensorParams['I_dark'],
+                        pp=SensorParams['pixel_pitch'], 
+                        qe=SensorParams['QE'], 
+                        ff=SensorParams['fill_factor'],
+                        tsf=SensorParams['tau_sf']*1e6, 
+                        tdr=SensorParams['tau_dark']*1e6, 
+                        q=1.602176634e-19)
+            
+            # Check with different noise models:
+            #dvs.init_bgn_hist("EVENT_SIMULATOR/data/noise_pos_161lux.npy", "EVENT_SIMULATOR/data/noise_neg_161lux.npy")
 
-        dvs.init_image(initial_frame)
-        ea = SynchronousArbiter(0.1, 0, initial_frame.shape[0])
+            dvs[ep].init_image(initial_frame)
+            ea[ep] = SynchronousArbiter(0.1, 0, initial_frame.shape[0])
+
         dt_us = InitParams['dt']*1e6
         t_end = InitParams['t_end']
         t = 0
@@ -174,12 +182,13 @@ def run_simulation(config_file_name,epoc):
 
         # Run the event simulation "blank" for some time to randomize noise statistics
         blankFrames = blankEvRun / InitParams['dt']
-        counter = 0
-        while counter < blankFrames:
-            dvs.update(initial_frame, dt_us)
-            counter += 1
-            #if DO_PLOTS:
-            #    ed.update(ev_temp, dt_us)
+        for ep in range(epochs): 
+            counter = 0
+            while counter < blankFrames:
+                dvs[ep].update(initial_frame, dt_us)
+                counter += 1
+                #if DO_PLOTS:
+                #    ed.update(ev_temp, dt_us)
 
         ######################################## The algorithm start here #######################################
         dvs_warping_package.print_message(f"t_velocity: {SceneParams['t_velocity']}", color='yellow', style='bold')
@@ -216,46 +225,47 @@ def run_simulation(config_file_name,epoc):
             
 
             # Run event simulator using the current image frame
-            ev, ev_signal, ev_noise, ground_truth = dvs.update(pixel_frame, dt_us)
+            for ep in range(epochs):
+                ev, ev_signal, ev_noise, ground_truth = dvs[ep].update(pixel_frame, dt_us)
             
-            event_count = len(ev.x)
-            if ev.ts[0]: # test if first timestamp in event stream is 0... usually meaning that event is a bug
-                rng = range(0,event_count)
-            else:
-                rng = range(1,event_count)
-            ev.x = ev.x[rng]
-            ev.y = ev.y[rng]
-            ev.p = ev.p[rng]
-            ev.ts = ev.ts[rng]                
-            #ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
-            ev.i = len(rng) # why did I need to add this? what changed in the event simulator?
-            
-            #ii = len(ev_full.x)
-            ev_full.increase_ev(ev)
+                event_count = len(ev.x)
+                if ev.ts[0]: # test if first timestamp in event stream is 0... usually meaning that event is a bug
+                    rng = range(0,event_count)
+                else:
+                    rng = range(1,event_count)
+                ev.x = ev.x[rng]
+                ev.y = ev.y[rng]
+                ev.p = ev.p[rng]
+                ev.ts = ev.ts[rng]                
+                #ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
+                ev.i = len(rng) # why did I need to add this? what changed in the event simulator?
+                
+                #ii = len(ev_full.x)
+                ev_full[ep].increase_ev(ev)
 
 
-            ev_signal = dvs_warping_package.ev_sorting(ev_signal)
-            ev_noise  = dvs_warping_package.ev_sorting(ev_noise)
+                ev_signal = dvs_warping_package.ev_sorting(ev_signal)
+                ev_noise  = dvs_warping_package.ev_sorting(ev_noise)
 
-            # per event labelling based on the binary mask
-            lables = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
-            # the labels are structure like this:
-            # 0 for only noise
-            # 1 for background
-            # -1 for moving target
-            final_l = np.where(lables == -1, -1, ground_truth[rng])
+                # per event labelling based on the binary mask
+                lables = dvs_warping_package.label_events(binary_target_mask, ev.x, ev.y)
+                # the labels are structure like this:
+                # 0 for only noise
+                # 1 for background
+                # -1 for moving target
+                final_l = np.where(lables == -1, -1, ground_truth[rng])
 
-            event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('ts', 'f4'), ('l', 'i4')])
-            events_array = np.zeros(len(rng), dtype=event_dtype)
-            events_array['x']  = ev.x.flatten()
-            events_array['y']  = ev.y.flatten()
-            events_array['p']  = ev.p.flatten()
-            events_array['ts'] = ev.ts.flatten()
-            events_array['l']  = final_l
-            
-            lables = lables
-            #all_labels.extend(lables.tolist()) #get rid of me
-            final_events.extend(events_array.tolist())
+                event_dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('p', 'f4'), ('ts', 'f4'), ('l', 'i4')])
+                events_array = np.zeros(len(rng), dtype=event_dtype)
+                events_array['x']  = ev.x.flatten()
+                events_array['y']  = ev.y.flatten()
+                events_array['p']  = ev.p.flatten()
+                events_array['ts'] = ev.ts.flatten()
+                events_array['l']  = final_l
+                
+                lables = lables
+                #all_labels.extend(lables.tolist()) #get rid of me
+                final_events[ep].extend(events_array.tolist())
 
             # Store the pixel displacement in the current data
             current_data = {
@@ -276,7 +286,7 @@ def run_simulation(config_file_name,epoc):
                 #'l': final_l
             }
             simulation_data.append(current_data)
-            
+                
             # advance counter
             counter += 1    
 
@@ -366,17 +376,17 @@ def run_simulation(config_file_name,epoc):
                 # Update the figures
                 plt.pause(0.001)           
         
-
         if scanned_params:
-            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}_ep{epoc}"
+            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}"
         else:
-            Out_file_name = f"{InitParams['sim_name']}_{epoc}"
+            Out_file_name = f"{InitParams['sim_name']}"
         #dvs_warping_package.save_to_es(ev_full, f"{output_path}/{config_file_name}/ev_{Out_file_name}.es")
         #ev_full.write(f"{output_path}/{config_file_name}/ev_{Out_file_name}.dat")
+            #np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
+        for ep in range(epochs):
+            np.savetxt(f"{output_path}/{config_file_name}/events_and_labels/ev_{Out_file_name}_ep{ep}.txt", np.array(final_events[ep]), fmt='%d')
         savemat(f"{output_path}/{config_file_name}/events_and_labels/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
-        #np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
-        np.savetxt(f"{output_path}/{config_file_name}/events_and_labels/ev_{Out_file_name}.txt", np.array(final_events), fmt='%d')
-        
+       
     if DO_PLOTS:
         plt.ioff() 
         plt.show()
@@ -390,7 +400,7 @@ if __name__ == '__main__':
     '''
 
     parser = argparse.ArgumentParser(description="Run simulations for different configurations.")
-    parser.add_argument('-filename', type=str, default="blink_freq_contrast_heatmap_50", 
+    parser.add_argument('-filename', type=str, default="Test_debug", 
                         help="Name of the configuration file")
     args = parser.parse_args()
 
@@ -399,13 +409,10 @@ if __name__ == '__main__':
 
     # Construct the configuration file name
     config_file_name = f"{config_file}"
-    epoch = 5
+    epochs = 2
     
-    # for cc in range(len(config_file)):
-    for ep in tqdm(range(1, epoch+1)):
-        dvs_warping_package.print_message(f"Config file: {config_file_name} epoch: {ep}", color='red', style='bold')
-        # config_file_name = config_file[cc]
-        run_simulation(config_file_name,ep)
+    dvs_warping_package.print_message(f"Config file: {config_file_name}", color='red', style='bold')
+    run_simulation(config_file_name,epochs)
     
     # Add a positional argument for the config file name
     #parser.add_argument('config_file_name', type=str, help='The path to the configuration file')
