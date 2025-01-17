@@ -242,7 +242,8 @@ for ti = 1:length(Tests)
         mean_BG_event_rate = Bg_event_count./(T-target_time);
         inds = (~isnan(mean_Signal_event_rate) & ~isinf(mean_Signal_event_rate));
         diffs = (mean_Signal_event_rate(inds)-mean_BG_event_rate(inds));
-        bw_snr = max(0, sum(diffs(diffs>0)) - bw_snr_base);
+        bw_snr = sum(diffs(diffs>0)) - bw_snr_base;%max(0, sum(diffs(diffs>0)) - bw_snr_base);
+
         disp([' - BW_SNR = ',num2str(bw_snr)]);
         BW_SNR(vi) = BW_SNR(vi) + bw_snr; % average value
 

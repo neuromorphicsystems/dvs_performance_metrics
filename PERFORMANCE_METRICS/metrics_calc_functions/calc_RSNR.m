@@ -2,6 +2,25 @@ function [RSNR, RateImage_Sig_med, RateImage_BG_med]= calc_RSNR(RateImage_Sig,Ra
 % get two event rate images: one for signal, and one for background.
 % calculate the Rate-Signal-to-Noise ratio for the data.
 % 
+<<<<<<< HEAD
+init_mat = zeros(matrix_size(1),matrix_size(2));
+
+%% calculate median value for each
+RateImage_Sig_med = init_mat;
+RateImage_BG_med = init_mat;
+for xi =1:matrix_size(1)
+    for yi=1:matrix_size(2)
+        if length(RateImage_Sig{xi,yi})>2
+            RateImage_Sig_med(xi,yi) = median(abs(RateImage_Sig{xi,yi}));
+        end
+        if ~isempty(RateImage_BG{xi,yi})
+            RateImage_BG_med(xi,yi) = median(abs(RateImage_BG{xi,yi}));
+        end
+    end
+end
+
+RSNR = max(RateImage_Sig_med(:))/std(RateImage_BG_med(:));
+=======
 % init_mat = nan(matrix_size(1),matrix_size(2));
 
 %% calculate median value for each - not a good metric
@@ -41,3 +60,4 @@ RSNR = sum(temp_energy_diff(temp_energy_diff>0));
         end
     end
 end
+>>>>>>> main

@@ -1,14 +1,14 @@
 function [events_aligned,filtered_inds,target_time_al] = align_Events(events,sim_meta_data,matrix_size)
+
 % events            = event data to align
 % target_frame_mask = meta data of line-of-sight angle changes
 % factor            = LOS angle to pixel shift factor (focal length)/(pixel pitch)
 
-
 events_aligned_temp.x = zeros(1,length(events.x));
 events_aligned_temp.y = zeros(1,length(events.y));
+
 events_aligned_temp.t = events.t;
 events_aligned_temp.on = events.on;
-
 
 t_new = 0;
 offset_x_perv = 0;

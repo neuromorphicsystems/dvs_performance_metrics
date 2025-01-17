@@ -51,11 +51,18 @@ def run_simulation():
         scanned_param_values = list(scanned_params.values())
         range_of_scan = range(len(scanned_param_values[0]))
     else:
+<<<<<<< HEAD
+        scanned_param_name = list(['.'])
+        scanned_param_values =list([1])
+
+    for param_value_index in range(len(scanned_param_values)):
+=======
         scanned_param_name      = list(['.'])
         scanned_param_values    = list()
         range_of_scan = range(1)
 
     for param_value_index in range_of_scan:
+>>>>>>> main
         section, param = scanned_param_name[0].split('.')
         if section == 'InitParams':
             InitParams[param] = scanned_param_values[0][param_value_index]
