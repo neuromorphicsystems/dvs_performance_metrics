@@ -4,8 +4,8 @@ function [events_aligned,filtered_inds,target_time_al] = align_Events(events,sim
 % factor            = LOS angle to pixel shift factor (focal length)/(pixel pitch)
 
 
-events_aligned_temp.x = zeros(1,length(events.x),'uint16');
-events_aligned_temp.y = zeros(1,length(events.y),'uint16');
+events_aligned_temp.x = zeros(1,length(events.x));
+events_aligned_temp.y = zeros(1,length(events.y));
 events_aligned_temp.t = events.t;
 events_aligned_temp.on = events.on;
 
@@ -30,8 +30,8 @@ for k = 2:length(sim_meta_data)
     % shift all events in the event cloud according to the offset and slope
     ind_start = ind_end+1;
     ind_end = find(events.t>=t_new,1)-1;
-    events_aligned_temp.x(ind_start:ind_end) = uint16(events.x(ind_start:ind_end)) + uint16(round(offset_x_perv - slope_x*(events.t(ind_start:ind_end)-events.t(ind_start))));
-    events_aligned_temp.y(ind_start:ind_end) = uint16(events.y(ind_start:ind_end)) + uint16(round(offset_y_perv - slope_y*(events.t(ind_start:ind_end)-events.t(ind_start))));
+    events_aligned_temp.x(ind_start:ind_end) = events.x(ind_start:ind_end) + round(offset_x_perv - slope_x*(events.t(ind_start:ind_end)-events.t(ind_start)));
+    events_aligned_temp.y(ind_start:ind_end) = events.y(ind_start:ind_end) + round(offset_y_perv - slope_y*(events.t(ind_start:ind_end)-events.t(ind_start)));
 
     % align the target mask according to target position
     kernel = create_shift_kernel(offset_y, offset_x);

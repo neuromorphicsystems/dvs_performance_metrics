@@ -258,12 +258,14 @@ def frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetPa
     target_frame_norm = np.array(target_frame_norm)
     target_height = SensorParams['height']
     target_width = SensorParams['width']
-    normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
-    normalized_target_frame = np.nan_to_num(normalized_target_frame, nan=0.0, posinf=255, neginf=0)
-    target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
-    resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
-    resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
-
+    if np.abs(target_frame_norm.max() - target_frame_norm.min())>0:
+        normalized_target_frame = (target_frame_norm - target_frame_norm.min()) / (target_frame_norm.max() - target_frame_norm.min()) * 255
+        normalized_target_frame = np.nan_to_num(normalized_target_frame, nan=0.0, posinf=255, neginf=0)
+        target_frame_image = Image.fromarray(normalized_target_frame.astype(np.uint8))
+        resized_target_frame_image = target_frame_image.resize((target_width, target_height), Image.NEAREST)
+        resized_target_frame_norm = np.array(resized_target_frame_image) / 255.0 * (target_frame_norm.max() - target_frame_norm.min()) + target_frame_norm.min()
+    else:        
+        resized_target_frame_norm = np.zeros((target_width, target_height))
     return pixel_frame, Dynamics, resized_target_frame_norm
 
 
