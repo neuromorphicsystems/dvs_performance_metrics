@@ -61,8 +61,10 @@ Crtl+B -> ,
 # to do in each terminal:
 Ctrl+B -> c
 Crtl+B -> , _name_
-conda activate dvs_performance_metric && python run_simulation.py -filename "frequency_amplitude_heatmap_amp_24"
+conda activate dvs_performance_metric && 
+python run_simulation.py -filename "frequency_amplitude_heatmap_amp_2"
 
 ## tmux: show status
 htop
 # exit:
+Ctrl+c

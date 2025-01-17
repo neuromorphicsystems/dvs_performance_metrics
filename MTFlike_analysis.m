@@ -7,10 +7,11 @@ vib = {'0','20'};
 epochs = 5;
 
 for veli = 1:length(vel)
+
+    FullTestName = ['MTF_vel',vel{veli},'_PSF3_vib0'];
     disp(' ')
     disp(['<< Working on results from ',FullTestName,' >>']);
 
-    FullTestName = ['MTF_vel',vel{veli},'_PSF3_vib0'];
     config_data_file = dir(['OUTPUT\',FullTestName,'\*as_run.ini']);
     [test_data,sanned_param] = readINI([config_data_file.folder,'\',config_data_file.name]);
     Testfiles_ev = dir(['OUTPUT\',FullTestName,'\events_and_labels\*.txt']);
@@ -40,7 +41,7 @@ for veli = 1:length(vel)
     count_files1 = length(Testfiles_ev);
     count_files2 = length(Testfiles_mat);
     if (count_files1<(epochs*length(vector)) || count_files2<(epochs*length(vector)))
-        warning(['missing result files for test ',Test(ti).name]);
+        warning(['missing result files for test ',FullTestName]);
     end
 
 
