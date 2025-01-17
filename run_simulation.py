@@ -29,8 +29,9 @@ from dvs_sensor import DvsSensor
 from event_display import EventDisplay
 from arbiter import SynchronousArbiter, BottleNeckArbiter, RowArbiter
 
-DO_PLOTS    = 1 # Are we ploting or are we not - turn off for server running
+DO_PLOTS    = 0 # Are we ploting or are we not - turn off for server running
 SAVE_FRAMES = 0 # Enable/Disable frame saving
+SAVE_AVI_SIM = 1 # Output a .avi file of the optical simulation
 output_path = "OUTPUT"
 
 blankEvRun = 0.5 # time in [sec] to run event simulation "blank" to rnadomize noise statistics
@@ -98,6 +99,7 @@ def run_simulation(config_file_name,epochs):
         frame_size = [SensorParams['height'], SensorParams['width']]
         Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         
+      
         
         # first frame is outside the loop
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
@@ -107,7 +109,6 @@ def run_simulation(config_file_name,epochs):
         binary_target_mask_memory[:,:,0] = initial_binary_mask
 
         # Store the target initial data
-
         current_data = {
             't': Dynamics['t'],
             'i_azimuth': Dynamics['i_azimuth'],
@@ -125,6 +126,18 @@ def run_simulation(config_file_name,epochs):
         for ep in range(epochs):
             final_events[ep]     = []      
     
+        if SAVE_AVI_SIM:
+            vid_output_filename = f"{output_path}/{config_file_name}/simulation_input_{Out_file_name}.avi"
+            vid_fps = np.round(0.1/InitParams['dt'])
+            fourcc = cv2.VideoWriter.fourcc(*'XVID') #0x7634706d
+            optical_sim_video = cv2.VideoWriter(vid_output_filename, fourcc, vid_fps, (SensorParams['width'],SensorParams['height']))
+            
+            frame_normalized_factor = (1/initial_frame.max()) * 230
+            pixel_frame_for_vid = cv2.cvtColor((initial_frame*frame_normalized_factor).astype(np.uint8),cv2.COLOR_GRAY2BGR)
+            cv2.putText(pixel_frame_for_vid, 'Frame 1', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            optical_sim_video.write(pixel_frame_for_vid)
+
+
         # Create the initial frame and setup simulation plots
         if DO_PLOTS:
             if param_value_index == 0:
@@ -214,6 +227,11 @@ def run_simulation(config_file_name,epochs):
                                                                             SensorBiases,
                                                                             SensorParams)
             
+            if SAVE_AVI_SIM:
+                pixel_frame_for_vid = cv2.cvtColor((pixel_frame*frame_normalized_factor).astype(np.uint8),cv2.COLOR_GRAY2BGR)
+                cv2.putText(pixel_frame_for_vid, f'Frame {counter+1}', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+                optical_sim_video.write(pixel_frame_for_vid)
+
             # Update the memory binary mask to include new mask
             binary_target_mask_memory[:,:, counter % maskMemorySize] = dvs_warping_package.create_binary_mask(target_frame_norm)
             binary_target_mask = np.any(binary_target_mask_memory, axis = 2)
@@ -389,11 +407,18 @@ def run_simulation(config_file_name,epochs):
         for ep in range(epochs):
             np.savetxt(f"{output_path}/{config_file_name}/events_and_labels/ev_{Out_file_name}_ep{ep}.txt", np.array(final_events[ep]), fmt='%d')
         savemat(f"{output_path}/{config_file_name}/events_and_labels/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
-       
+        
+        # Release the VideoWriter object
+        if SAVE_AVI_SIM:
+            optical_sim_video.release()
+
     if DO_PLOTS:
         plt.ioff() 
         plt.show()
 
+    cv2.destroyAllWindows()
+    dvs_warping_package.print_message(f"Simulations complete", color='blue', style='bold')
+        
 
 if __name__ == '__main__':
     ''' Example:
