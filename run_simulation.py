@@ -77,7 +77,14 @@ def run_simulation(config_file_name,epochs):
         if section == 'SensorParams':
             SensorParams[param] = scanned_param_values[0][param_value_index]
 
-        dvs_warping_package.print_message(f"Loop 1: {param_value_index}", color='yellow', style='bold')
+        if scanned_params:
+            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}"
+            disp_text = f"Iteration {param_value_index}, for {param} - value {scanned_param_values[0][param_value_index]}"
+        else:
+            Out_file_name = f"{InitParams['sim_name']}"
+            disp_text = f"Starting single run {InitParams['sim_name']} for {config_file_name}.ini"
+
+        dvs_warping_package.print_message(disp_text, color='yellow', style='bold')
 
         # Create the event buffer and arbiter and initialize all event buffer for all epochs
         final_events = [None] * epochs
@@ -191,12 +198,11 @@ def run_simulation(config_file_name,epochs):
                 #    ed.update(ev_temp, dt_us)
 
         ######################################## The algorithm start here #######################################
-        dvs_warping_package.print_message(f"t_velocity: {SceneParams['t_velocity']}", color='yellow', style='bold')
+        dvs_warping_package.print_message(f"Simulation loop starting", color='yellow', style='bold')
 
         # Single simulation run	in epoch
         counter = 1
         # with tqdm(total=t_end, desc="Simulation Progress", unit="time step") as pbar:
-        dvs_warping_package.print_message(f"Optical-event simulator start", color='yellow', style='bold')
         while t < t_end:           
             # Create new intensity image frame, current target mask, and update dynamic parameters              
             pixel_frame, Dynamics, target_frame_norm = frame_sim_functions(Dynamics,
@@ -375,14 +381,11 @@ def run_simulation(config_file_name,epochs):
 
                 # Update the figures
                 plt.pause(0.001)           
-        
-        if scanned_params:
-            Out_file_name = f"{InitParams['sim_name']}_{param}_{scanned_param_values[0][param_value_index]}"
-        else:
-            Out_file_name = f"{InitParams['sim_name']}"
+
         #dvs_warping_package.save_to_es(ev_full, f"{output_path}/{config_file_name}/ev_{Out_file_name}.es")
         #ev_full.write(f"{output_path}/{config_file_name}/ev_{Out_file_name}.dat")
             #np.savetxt(f"{output_path}/{config_file_name}/labels_{Out_file_name}.txt", all_labels, fmt='%d')
+        dvs_warping_package.print_message(f"Saving result files", color='yellow', style='bold')
         for ep in range(epochs):
             np.savetxt(f"{output_path}/{config_file_name}/events_and_labels/ev_{Out_file_name}_ep{ep}.txt", np.array(final_events[ep]), fmt='%d')
         savemat(f"{output_path}/{config_file_name}/events_and_labels/simdata_{Out_file_name}.mat", {"simulation_data": simulation_data}, do_compression=True, format='5')
