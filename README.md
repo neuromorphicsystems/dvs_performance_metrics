@@ -7,9 +7,16 @@ The code is divided into several sections:
 3)	Simulating Even stream data according to these synthetic frames, with classification of target events and background events.
 4)	Running the performance analysis for the event-stream data sets.
 
-Step 1 – create a single or multiple .ini config files, placed in the “\config” folder, to fit the imaging system and scenario under examination.
-Step 2 –use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams.
-Step 3 – when all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as “FullTestAnalysis.m”, and these need to be adapted to the parameter of interest of each simulation run.  
+**Step 1** – create a single or multiple .ini config files, placed in the “\config” folder, to fit the imaging system and scenario under examination. 
+
+**Step 2** – use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams.
+
+Example single config file simulation: 
+```sh
+python3 run_simulation.py -filename "Test_debug"
+```
+
+**Step 3** – when all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as “FullTestAnalysis.m”, and these need to be adapted to the parameter of interest of each simulation run.  
 
 Related publication: Performance metrics for neuromorphic imaging, N.Kruger et al, 2025
 https://ebooks.spiedigitallibrary.org/conference-proceedings-of-spie/13376/133760D/Performance-metrics-for-neuromorphic-imaging/10.1117/12.3041873.full
@@ -52,14 +59,19 @@ Changes include adding physical values for conversion from pixel illumination fl
 **config**: the .ini config files for all optical system, scene, and sensor parameters used to simulated the frames and the corresponding event streams. See details in the next section here.
 
 # config file creation and structure
-A few notes:
+
+**A few notes:**
+
 1) There are two type of config files - one to be called by for simulations, and the second for generic sensor configurations. We will only detail the simulation parameters config file here, as the sensor config file is only a sub-set of the former.
+
 2) Each configuration file can include ONE parameter to be "scanned" by the simulator, meaning it can be included as a vector, and not a scalar value. The difference being that the values for the chosen scanned parameter are a row of values, seperated be a comma "," only. This can only be done on fields that are a scalar or integer inputs (not for text input).
+
 3) Responsibility on ensuring legal values is on the operator of the simulator. Ensure you choose values that fit real-world scenarios and hardware parameters.
+
 4) brightness levels are those expected on the sensor plane. As this simulation doesn't include translating target illumination levels to these expected on the sensor plane, the analytical process of estimated precieved brightness by the sensor is left for the user to derive.
 
 
-**[InitParams]**: general parameters for the simulation.
+## [InitParams] -- general parameters for the simulation.
 
 **sim_name**: The simulation name - will be used also in nameing of result output files
 
@@ -78,7 +90,7 @@ A few notes:
 **sensor_model**: Chosen sensor model. options = {'Gen4', 'Gen3', 'Davis346','Manual'} - all option other than "Manual" pull information from dedicated sensor config files. When "Manual" is chosen, the sensor parameters are taking for this file (under "ManualSensorParams" section at the end)
 
 
-**[SceneParams]**: All parameters regarding the scene motion
+ ## [SceneParams] -- All parameters regarding the scene motion
 
 **BG_const**: Scalar value of [lumen] or [W/m^2] - the background brightness level
 
@@ -111,7 +123,7 @@ A few notes:
 **leapDuty**: Scalar value for duty cycle for motion in leap tracking mode (after which the same cycle duration is dedicated to stopping the imager motion)
 
 
-**[OpticParams]**: All optical parameters of the imaging system
+## [OpticParams] -- All optical parameters of the imaging system
 
 **focal_length**: Scalar value of [m] - imager focal length
 
@@ -120,7 +132,7 @@ A few notes:
 **PSF_size**: Scalar value of [pixels] - Gaussian Point Spread Function (PSF) Full-width-half-max size
 
 
-**[TargetParams]**: Define all target related parameters
+## [TargetParams] -- Define all target related parameters
 
 **target_type**: choose from options: {'spot', 'g_flash'}. 'spot' being a simple constant brightnes round target. 'g_flash' is a round target coming into existance only once with a distinct temporal-spatial profile.
 (future options include 'blinking_spot' and 'modulated_spot' - TBD)   
@@ -140,7 +152,7 @@ A few notes:
 **mod_duty_cycle**: Placeholder (Scalar value of blink on duty cycle for 'blinking_spot')
 
 
-**[BgParams]**: Background parameters
+## [BgParams] -- Background parameters
 
 **BG_type**: Choose options from: {'const', 'lines', 'natural'}. 'const' is constant illumination for entire FOV. 'lines' is a line structure, where minimal value is the "BG_const" value chosen under "SceneParams" section, and maximal value is defined below under "BG_brightness". 'natural' is a random natural distribution of intensity pattern (with max and min brightness defined similar to the lines option).
 
@@ -151,7 +163,7 @@ A few notes:
 **BG_brightness**: Scalar value of [lumen] or [W/m^2] - max background pattern brightness. For constant BG brightness choose this to be 0, as the brightness is defined by "BG_const" under "SceneParams" section.
 
 
-**[SensorBiases]**: Sensor parameters that are "user defined" - namely the diff-on and diff-off thresholds, and the refractory period.
+## [SensorBiases] -- Sensor parameters that are "user defined" - namely the diff-on and diff-off thresholds, and the refractory period.
 
 **diff_on**: Scalar value of ON event threshold 
 
@@ -160,7 +172,7 @@ A few notes:
 **refr**: Scalar value of refractory period in [us]
 
 
-**[ManualSensorParams]**: For override of fixed sensor parameters for certain sensor models, values can be chosen here. Only considered is "sensor_model" under "InitParams" section is chosen to be 'Manual'.
+## [ManualSensorParams] -- For override of fixed sensor parameters for certain sensor models, values can be chosen here. Only considered is "sensor_model" under "InitParams" section is chosen to be 'Manual'.
 
 **width**: Integer number of horizontal pixels
 
