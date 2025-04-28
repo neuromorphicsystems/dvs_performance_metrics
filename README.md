@@ -1,26 +1,23 @@
-# Performance Metrics for Neuromorphic Imaging - simulation and analysis code
+# Performance Metrics for Neuromorphic Imaging
 
-# description
+
+Simulation and analysis code for: **Performance metrics for neuromorphic imaging** paper  
+*N. Kruger, S. Arja, E. Andrew, T. Monk & A. van Schaik (SPIE 13376, 2025)*  
+[▶ Read the full paper on SPIE Digital Library](https://ebooks.spiedigitallibrary.org/conference-proceedings-of-spie/13376/133760D/Performance-metrics-for-neuromorphic-imaging/10.1117/12.3041873.full)
+
+
+# Summary
 This is a framework to simulate basic object motion scenes, as viewed by an event camera, and calculate the expected performance of the sensor for various imaging system parameters.
-The code is divided into several sections:
-1)	Broad description of imaging parameters (sensor, optics, and scene) via manual editing of configuration files.
-2)	Generate synthetic frames according to these parameters.
-3)	Simulating Even stream data according to these synthetic frames, with classification of target events and background events.
-4)	Running the performance analysis for the event-stream data sets.
 
-**Step 1** – create a single or multiple .ini config files, placed in the “\config” folder, to fit the imaging system and scenario under examination. 
+This repository provides:
 
-**Step 2** – use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams.
+1. **Config-driven scene setup** via simple `.ini` files (sensor, optics, scene).  
+2. **Synthetic frame generation** based on those parameters.  
+3. **Event‐stream simulation** with classification of target vs. background events.  
+4. **Performance analysis** scripts to extract metrics from the event data.
 
-Example single config file simulation: 
-```sh
-python3 run_simulation.py -filename "Test_debug"
-```
+---
 
-**Step 3** – when all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as “FullTestAnalysis.m”, and these need to be adapted to the parameter of interest of each simulation run.  
-
-Related publication: **Performance metrics for neuromorphic imaging**, N.Kruger, S.Arja, E.Andreq, T.Monk, A.van Schaik [2025]
-https://ebooks.spiedigitallibrary.org/conference-proceedings-of-spie/13376/133760D/Performance-metrics-for-neuromorphic-imaging/10.1117/12.3041873.full
 
 
 # Setup
@@ -43,7 +40,50 @@ source ~/.bashrc && conda activate dvs_performance_metric
 python3 -m pip install -e .
 ```
 
+## Run Simulation
+
+Follow these steps to configure and launch your simulations:
+
+### 1. Prepare your configuration files  
+- Create one or more `<name>.ini` files in the `config/` folder.  
+- Each `.ini` contains your imaging parameters (sensor, optics, scene, timing). 
+- See examples in `config/` 
+ 
+### 2. Launch the simulator  
+
+#### Single‐config-run  
+```bash
+python3 run_simulation.py -filename "<config_name>"
+```
+
+<!-- 
+#### Multiple‐config-run  
+```bash
+python3 run_several_sims.py -filename "<config_name_1>" "<config_name_2>" "<config_name_3>"
+``` -->
+
+
+<!-- **Step 2** – Use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams. -->
+
+### 3. Data Analyis and Post-processing
+
+When all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as `FullTestAnalysis.m`, and these need to be adapted to the parameter of interest of each simulation run.  
+
+#### Optional flags
+
+Edit the top of ```run_simulation.py```
+
+```sh
+DO_PLOTS    = 0    # 1 = enable real-time matplotlib display
+SAVE_FRAMES = 0    # 1 = save per-frame PNGs into OUTPUT/<config>/
+epoch       = 5    # number of repeats per config
+bgnp, bgnn  = 0.2, 0.2  # background event rates
+blankEvRun  = 0.5  # seconds of noise “warm-up”
+```
+
+
 # Content of each folder
+
 
 **OPTICAL_SIMULATOR**: functions used to generate frames from parameter files. main function if the "basic_tar_bg_simulation.py" - containing config file read functions, and frame creation for target and background.
 
@@ -54,6 +94,20 @@ Changes include adding physical values for conversion from pixel illumination fl
 **PERFORMANCE_METRICS**: functions used to support the MATLAB performance analysis scripts (such as event motion allignment)
 
 **OUTPUT**: simulation data output files
+
+```
+OUTPUT/
+└─ <config_name>/
+   ├─ events_and_labels/
+   │  ├─ simdata_<sim_name>_<ep>.mat    # MATLAB struct “simulation_data”
+   │  └─ ev_<sim_name>_<ep>.txt         # [x, y, p, ts, l] per event
+   ├─ raw_event_image/        (if SAVE_FRAMES=1)
+   ├─ only_signal_image/      (if SAVE_FRAMES=1)
+   ├─ only_background_image/  (if SAVE_FRAMES=1)
+   ├─ only_noise_image/       (if SAVE_FRAMES=1)
+   ├─ mask_overlay/           (if SAVE_FRAMES=1)
+   └─ labeled_image/          (if SAVE_FRAMES=1)
+```
 
 **dvs_warping_package and dvs_warping_package_extension**: Python and C++ packages to enable denoising and event warping
 
@@ -203,3 +257,33 @@ For override of fixed sensor parameters for certain sensor models, values can be
 **latency**: Scalar value of latency in [sec] (this is in addition to the latency calculated by pixels response from first order filter calculation - can be attributed to arbiter latency)
 
 **I_dark**: Scalar value of mena pixel dark current [A]. must be bigger than 0. (again, see "Re-interpreting the step-response probability curve to extract fundamental physical parameters of event-based vision sensors", 10.1117/12.3022308)
+
+
+
+
+### Citations
+
+If you use this work in an academic context, please cite the following:
+
+
+```bibtex
+@inproceedings{kruger2025performance,
+  title        = {Performance metrics for neuromorphic imaging},
+  author       = {Kruger, Nimrod and Arja, Sami and Andrew, Evie and Monk, Travis and van Schaik, André},
+  booktitle    = {Quantum Sensing and Nano Electronics and Photonics XXI},
+  volume       = {13376},
+  pages        = {74--82},
+  year         = {2025},
+  organization = {SPIE}
+}
+
+@article{joubert2021event,
+  title     = {Event camera simulator improvements via characterized parameters},
+  author    = {Joubert, Damien and Marcireau, Alexandre and Ralph, Nic and Jolley, Andrew and Van Schaik, André and Cohen, Gregory},
+  journal   = {Frontiers in Neuroscience},
+  volume    = {15},
+  pages     = {702765},
+  year      = {2021},
+  publisher = {Frontiers Media SA}
+}
+```
