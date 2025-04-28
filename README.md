@@ -1,5 +1,6 @@
-# Performance Metrics for Neuromorphic Imaging
-## description
+# Performance Metrics for Neuromorphic Imaging - simulation and analysis code
+
+# description
 This is a framework to simulate basic object motion scenes, as viewed by an event camera, and calculate the expected performance of the sensor for various imaging system parameters.
 The code is divided into several sections:
 1)	Broad description of imaging parameters (sensor, optics, and scene) via manual editing of configuration files.
@@ -18,7 +19,7 @@ python3 run_simulation.py -filename "Test_debug"
 
 **Step 3** – when all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as “FullTestAnalysis.m”, and these need to be adapted to the parameter of interest of each simulation run.  
 
-Related publication: Performance metrics for neuromorphic imaging, N.Kruger et al, 2025
+Related publication: **Performance metrics for neuromorphic imaging**, N.Kruger, S.Arja, E.Andreq, T.Monk, A.van Schaik [2025]
 https://ebooks.spiedigitallibrary.org/conference-proceedings-of-spie/13376/133760D/Performance-metrics-for-neuromorphic-imaging/10.1117/12.3041873.full
 
 
@@ -58,7 +59,7 @@ Changes include adding physical values for conversion from pixel illumination fl
 
 **config**: the .ini config files for all optical system, scene, and sensor parameters used to simulated the frames and the corresponding event streams. See details in the next section here.
 
-# config file creation and structure
+# Config file creation and structure
 
 **A few notes:**
 
