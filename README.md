@@ -56,19 +56,6 @@ Follow these steps to configure and launch your simulations:
 python3 run_simulation.py -filename "<config_name>"
 ```
 
-<!-- 
-#### Multiple‐config-run  
-```bash
-python3 run_several_sims.py -filename "<config_name_1>" "<config_name_2>" "<config_name_3>"
-``` -->
-
-
-<!-- **Step 2** – Use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams. -->
-
-### 3. Data Analyis and Post-processing
-
-When all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as `FullTestAnalysis.m`, and these need to be adapted to the parameter of interest of each simulation run.  
-
 #### Optional flags
 
 Edit the top of ```run_simulation.py```
@@ -82,18 +69,50 @@ blankEvRun  = 0.5  # seconds of noise “warm-up”
 ```
 
 
-# Content of each folder
+<!-- 
+#### Multiple‐config-run  
+```bash
+python3 run_several_sims.py -filename "<config_name_1>" "<config_name_2>" "<config_name_3>"
+``` -->
 
 
-**OPTICAL_SIMULATOR**: functions used to generate frames from parameter files. main function if the "basic_tar_bg_simulation.py" - containing config file read functions, and frame creation for target and background.
+<!-- **Step 2** – Use “run_simulation.py” with single config file input argument, or “run_several_sims.py” for calling several config files consecutively (with specific naming conventions). This will both generate the synthetic frames and the event streams. -->
 
-**EVENT_SIMULATOR**: Contains the event simulation. This version is an unpdated version of the simulation published in:
-https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2021.702765/full
-Changes include adding physical values for conversion from pixel illumination flux to voltage readout, and the ability to classify events according to input.
+### 3. Data Analyis and Post-processing
 
-**PERFORMANCE_METRICS**: functions used to support the MATLAB performance analysis scripts (such as event motion allignment)
+When all data files are created, use analysis scripts to examine the data and calculate change in various metrics. Examples include MATLAB scripts such as `FullTestAnalysis.m`, and these need to be adapted to the parameter of interest of each simulation run.  
 
-**OUTPUT**: simulation data output files
+
+## Content of each folder
+
+- **`OPTICAL_SIMULATOR/`**  
+  Core routines for generating synthetic image frames.  
+  - **`basic_tar_bg_simulation.py`**:  
+    - Parses your `.ini` config.  
+    - Creates target and background images based on scene, optics, and sensor parameters.
+
+
+- **`EVENT_SIMULATOR/`**  
+  Event‐stream generation engine (forked and extended from Joubert *et al.* 2021):  
+  <https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2021.702765/full>  
+  - Adds physical-to-voltage conversion (illumination → pixel voltage).  
+  - Labels each event as **signal**, **background**, or **noise**.
+
+- **`PERFORMANCE_METRICS/`**  
+  Utility functions that support the MATLAB analysis scripts (e.g. motion alignment, metric calculators).
+
+- **`dvs_warping_package/` & `dvs_warping_package_extension/`**  
+  Python and C++ libraries for: 
+  - Event denoising  
+  - Motion compensation (event “warping”)
+  - Only used when needed
+
+- **`config/`**  
+  Your simulation `.ini` files (scene, optics, sensor, noise, scan parameters).
+
+
+**`OUTPUT/`**: 
+Simulation data output files
 
 ```
 OUTPUT/
@@ -109,9 +128,6 @@ OUTPUT/
    └─ labeled_image/          (if SAVE_FRAMES=1)
 ```
 
-**dvs_warping_package and dvs_warping_package_extension**: Python and C++ packages to enable denoising and event warping
-
-**config**: the .ini config files for all optical system, scene, and sensor parameters used to simulated the frames and the corresponding event streams. See details in the next section here.
 
 # Config file creation and structure
 
