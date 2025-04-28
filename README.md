@@ -26,7 +26,7 @@ This repository provides:
 - python: 3.9.x, 3.10.x
 
 ## Tested environments
-- Ubuntu 22.04
+- Ubuntu 22.04 and Windows 11
 - Conda 23.1.0
 - Python 3.9.18
 
