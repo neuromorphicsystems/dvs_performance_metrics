@@ -71,7 +71,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 4) brightness levels are those expected on the sensor plane. As this simulation doesn't include translating target illumination levels to these expected on the sensor plane, the analytical process of estimated precieved brightness by the sensor is left for the user to derive.
 
 
-## [InitParams] -- general parameters for the simulation.
+## [InitParams]
+general parameters for the simulation.
 
 **sim_name**: The simulation name - will be used also in nameing of result output files
 
@@ -90,7 +91,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **sensor_model**: Chosen sensor model. options = {'Gen4', 'Gen3', 'Davis346','Manual'} - all option other than "Manual" pull information from dedicated sensor config files. When "Manual" is chosen, the sensor parameters are taking for this file (under "ManualSensorParams" section at the end)
 
 
- ## [SceneParams] -- All parameters regarding the scene motion
+ ## [SceneParams]
+ All parameters regarding the scene motion
 
 **BG_const**: Scalar value of [lumen] or [W/m^2] - the background brightness level
 
@@ -123,7 +125,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **leapDuty**: Scalar value for duty cycle for motion in leap tracking mode (after which the same cycle duration is dedicated to stopping the imager motion)
 
 
-## [OpticParams] -- All optical parameters of the imaging system
+## [OpticParams]
+All optical parameters of the imaging system
 
 **focal_length**: Scalar value of [m] - imager focal length
 
@@ -132,7 +135,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **PSF_size**: Scalar value of [pixels] - Gaussian Point Spread Function (PSF) Full-width-half-max size
 
 
-## [TargetParams] -- Define all target related parameters
+## [TargetParams]
+Define all target related parameters
 
 **target_type**: choose from options: {'spot', 'g_flash'}. 'spot' being a simple constant brightnes round target. 'g_flash' is a round target coming into existance only once with a distinct temporal-spatial profile.
 (future options include 'blinking_spot' and 'modulated_spot' - TBD)   
@@ -152,7 +156,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **mod_duty_cycle**: Placeholder (Scalar value of blink on duty cycle for 'blinking_spot')
 
 
-## [BgParams] -- Background parameters
+## [BgParams]
+Background parameters
 
 **BG_type**: Choose options from: {'const', 'lines', 'natural'}. 'const' is constant illumination for entire FOV. 'lines' is a line structure, where minimal value is the "BG_const" value chosen under "SceneParams" section, and maximal value is defined below under "BG_brightness". 'natural' is a random natural distribution of intensity pattern (with max and min brightness defined similar to the lines option).
 
@@ -163,7 +168,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **BG_brightness**: Scalar value of [lumen] or [W/m^2] - max background pattern brightness. For constant BG brightness choose this to be 0, as the brightness is defined by "BG_const" under "SceneParams" section.
 
 
-## [SensorBiases] -- Sensor parameters that are "user defined" - namely the diff-on and diff-off thresholds, and the refractory period.
+## [SensorBiases]
+Sensor parameters that are "user defined" - namely the diff-on and diff-off thresholds, and the refractory period.
 
 **diff_on**: Scalar value of ON event threshold 
 
@@ -172,7 +178,8 @@ Changes include adding physical values for conversion from pixel illumination fl
 **refr**: Scalar value of refractory period in [us]
 
 
-## [ManualSensorParams] -- For override of fixed sensor parameters for certain sensor models, values can be chosen here. Only considered is "sensor_model" under "InitParams" section is chosen to be 'Manual'.
+## [ManualSensorParams]
+For override of fixed sensor parameters for certain sensor models, values can be chosen here. Only considered is "sensor_model" under "InitParams" section is chosen to be 'Manual'.
 
 **width**: Integer number of horizontal pixels
 
