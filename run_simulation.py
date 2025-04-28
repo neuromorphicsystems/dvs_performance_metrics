@@ -2,7 +2,7 @@
 """
 Created on Fri Sep 13 16:29:52 2024
 
-@author: 30067913
+@author: Nimrod Kruger
 """
 
 
@@ -228,7 +228,7 @@ def run_simulation(config_file_name,epoc):
             ev.p = ev.p[rng]
             ev.ts = ev.ts[rng]                
             #ev.ts = np.uint16(ev.ts - blankFrames * InitParams['dt'] * 1e6)
-            ev.i = len(rng) # why did I need to add this? what changed in the event simulator?
+            ev.i = len(rng) 
             
             #ii = len(ev_full.x)
             ev_full.increase_ev(ev)
