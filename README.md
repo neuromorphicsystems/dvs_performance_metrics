@@ -53,7 +53,7 @@ Follow these steps to configure and launch your simulations:
 
 #### Single‐config-run  
 ```bash
-python3 run_simulation.py -filename "<config_name>"
+python3 run_simulation.py -filename "<config_name>" #no need to add the file format ".ini" for config filename
 ```
 
 #### Optional flags
@@ -143,7 +143,7 @@ OUTPUT/
 
 
 ## [InitParams]
-general parameters for the simulation.
+General parameters for the simulation.
 
 **sim_name**: The simulation name - will be used also in nameing of result output files
 
