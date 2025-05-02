@@ -54,7 +54,11 @@ Follow these steps to configure and launch your simulations:
 #### Single‐config-run  
 ```bash
 python3 run_simulation.py -filename "<config_name>" #no need to add the file format ".ini" for config filename
+
+# Example command
+python3 run_simulation.py -filename "frequency_size_heatmap_size50"
 ```
+
 
 #### Optional flags
 
