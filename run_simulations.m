@@ -1,18 +1,3 @@
-% pyenv('Version', 'C:\Users\30067913\Anaconda3\envs\dvs_performance_metric\python.exe')
-% % operator = py.importlib.import_module('operator');
-% 
-% % Test 1
-% for sim = 1:3%6
-%     pyrunfile(['run_simulation.py T1_',num2str(sim)])
-%     disp(['done runing simulation run #',num2str(sim),' from test #1'])
-% end
-% 
-% % % Test 2
-% % for sim = 1%6
-% %     pyrunfile(['run_simulation.py T2_',num2str(sim)])
-% %     disp(['done runing simulation run #',num2str(sim),' from test #1'])
-% % end
-
 %%
 
 addpath("PERFORMANCE_METRICS\metrics_calc_functions\")

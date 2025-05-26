@@ -4,7 +4,7 @@ Dirdir = 'T1_3';
 % file_to_load = 'T1_constBG_sharp_t_velocity_10.0_ep1';
 % Dirdir = 'T1_1';
 
-Data_Root_Dir = 'C:\Users\30067913\Data\performance_metric_sim\';
+Data_Root_Dir = '\Data\performance_metric_sim\';
 load([Data_Root_Dir,Dirdir,'\events_and_labels\simdata_',file_to_load,'.mat']);
 eventdata = load([Data_Root_Dir,Dirdir,'\events_and_labels\ev_',file_to_load,'.txt']);
 matrix_size = [640,480];
