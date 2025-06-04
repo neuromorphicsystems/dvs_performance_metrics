@@ -2,7 +2,7 @@
 """
 Created on Fri Sep 13 16:02:16 2024
 
-@author: 30067913
+@author: Nimrod Kruger
 
 This set of functions creates simulated intensity images of targets and
 backgrounds, with basic tracking heuristics. The aim is to create simple "video"

@@ -2,9 +2,9 @@ clear all
 close all
 addpath('metrics_calc_functions\')
 
-data_path = 'C:\Users\30067913\OneDrive - Western Sydney University\Projects\Perfromance_model\';
+data_path = '';
 file_name = 'event_with_labels';
-load('C:\Users\30067913\OneDrive - Western Sydney University\Projects\Perfromance_model\data\masks\target_frame_mask.mat')
+load('\data\masks\target_frame_mask.mat')
 
 %% load events from file.
 data_from_file = load([data_path,file_name,'.mat']);

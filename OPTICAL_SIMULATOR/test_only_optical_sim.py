@@ -2,7 +2,7 @@
 """
 Created on Fri Sep 13 16:29:52 2024
 
-@author: 30067913
+@author: Nimrod Kruger
 """
 
 

@@ -1,35 +1,11 @@
-% pyenv('Version', 'C:\Users\30067913\Anaconda3\envs\dvs_performance_metric\python.exe')
-% % operator = py.importlib.import_module('operator');
-%
-% % Test 1
-% for sim = 1:3%6
-%     pyrunfile(['run_simulation.py T1_',num2str(sim)])
-%     disp(['done runing simulation run #',num2str(sim),' from test #1'])
-% end
-%
-% % % Test 2
-% % for sim = 1%6
-% %     pyrunfile(['run_simulation.py T2_',num2str(sim)])
-% %     disp(['done runing simulation run #',num2str(sim),' from test #1'])
-% % end
 
-%
-% file_list = dir("OUTPUT\T1_1\simdata_T1_*.mat");
-%
-% PSF_type = {'sharp','slightblur','blurred'};
-% % val = 0:2:16;
-% val = [0,4,6,7,7.5,7.8,8,8.2,8.5,9,10,12,16];
-% % val = 0:1:8;
-% % val = 3:3:33;
-% matrix_size = [1280,720]; %[640,480];
-% BG = "constBG";
 
 %%
 clear all
 
 addpath("PERFORMANCE_METRICS\metrics_calc_functions\")
 % addpath("..\event_stream\matlab\")
-Data_Root_Dir = 'C:\Users\30067913\Data\performance_metric_sim\';
+Data_Root_Dir = '..\..\Data\performance_metric_sim\';
 % FullTestName = 'frequency_amplitude_heatmap';
 % vec = {'0','2','4','6','8','10','12','14','16','18','20'};
 % Tests = struct('name','','folder','','date','','bytes',0,'isdir',0,'datenum',0);
