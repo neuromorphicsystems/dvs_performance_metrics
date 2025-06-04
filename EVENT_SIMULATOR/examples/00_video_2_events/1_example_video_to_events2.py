@@ -8,7 +8,7 @@
 import cv2
 import sys
 import numpy as np
-sys.path.append("/home/samiarja/Desktop/PhD/Code/dvs_metrics/src")
+sys.path.append("./Code/dvs_metrics/src")
 
 from event_buffer import EventBuffer
 # from dvs_sensor_cpp import DvsSensor
@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 
 # #### load the frames from the .mat files
-# simu_frames = sio.loadmat(f'/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/all_frames.mat')
+# simu_frames = sio.loadmat(f'./Code/dvs_metrics/videos/all_frames.mat')
 # frames_info = simu_frames["pixel_frame_3D"]
 
 # # im = np.stack([frames_info[:,:,0]]*3, axis=-1)
@@ -37,10 +37,10 @@ import scipy.io as sio
 if not os.path.exists("./outputs"):
     os.mkdir("./outputs")
 
-simu_frames = sio.loadmat(f'/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/all_frames.mat')
+simu_frames = sio.loadmat(f'./Code/dvs_metrics/videos/all_frames.mat')
 frames_info = simu_frames["pixel_frame_3D"]
 
-filename = "/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/input_frames_spot_lines_kernel_radius_50.avi"
+filename = "./Code/dvs_metrics/videos/input_frames_spot_lines_kernel_radius_50.avi"
 th_pos = 0.3        # ON threshold = 50% (ln(1.5) = 0.4)
 th_neg = 0.4        # OFF threshold = 50%
 th_noise = 0.01     # standard deviation of threshold noise
@@ -68,7 +68,7 @@ dvs.initCamera(int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_
                    lat=lat, jit = jit, ref = ref, tau = tau, th_pos = th_pos, th_neg = th_neg, th_noise = th_noise,
                    bgnp=bgnp, bgnn=bgnn,lcurr=leakeage_current,fmax=F_max)
 # To use the measured noise distributions, uncomment the following line
-dvs.init_bgn_hist("/home/samiarja/Desktop/PhD/Code/dvs_metrics/data/noise_pos_161lux.npy", "/home/samiarja/Desktop/PhD/Code/dvs_metrics/data/noise_neg_161lux.npy")
+dvs.init_bgn_hist("./Code/dvs_metrics/data/noise_pos_161lux.npy", "./Code/dvs_metrics/data/noise_neg_161lux.npy")
 
 # # Skip the first 50 frames of the video to remove video artifacts
 # for i in range(1):
@@ -131,5 +131,5 @@ for i in range(len(frames_info[0,0,:])):
 
 cap.release()
 # Save the events to a .dat file
-ev_full.write('/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/ev_{}_{}_{}_{}_{}_{}.dat'.format(lat, jit, ref, tau, th_pos, th_noise))
-np.save("/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/frame_timestamp.npy",frame_timestamp)
+ev_full.write('./Code/dvs_metrics/videos/ev_{}_{}_{}_{}_{}_{}.dat'.format(lat, jit, ref, tau, th_pos, th_noise))
+np.save("./Code/dvs_metrics/videos/frame_timestamp.npy",frame_timestamp)

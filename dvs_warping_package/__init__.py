@@ -1357,7 +1357,7 @@ def plot_roc_curve(fpr, tpr, filter_method, recording_name):
     plt.plot([0, 1], [0, 1], 'r--')
     plt.xticks([i * 0.1 for i in range(11)])
     plt.yticks([i * 0.1 for i in range(11)])
-    plt.savefig(f"/media/samiarja/VERBATIM HD/Denoising/{filter_method}/{recording_name}/{filter_method}_roc_curve.png")
+    plt.savefig(f"./Denoising/{filter_method}/{recording_name}/{filter_method}_roc_curve.png")
     # plt.show()
 
 

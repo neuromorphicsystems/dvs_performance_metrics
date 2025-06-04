@@ -16,17 +16,17 @@ import dvs_sparse_filter
 parent_folder       = f'../../videos'
 filename            = f'{parent_folder}/ev_500_50_100_10_0.3_0.01.dat'
 ts, x, y, p         = load_dat_event(filename)
-frames_timestamp    = np.load("/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/frame_timestamp.npy")
+frames_timestamp    = np.load("./Code/dvs_metrics/videos/frame_timestamp.npy")
 
 sensor_size = (max(x)+1,max(y)+1)
 print(f"res (wxh): {max(x)+1,max(y)+1}")
 
 
-if not os.path.exists(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/event_frames"):
-    os.mkdir(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/event_frames")
+if not os.path.exists(f"./Code/dvs_metrics/videos/event_frames"):
+    os.mkdir(f"./Code/dvs_metrics/videos/event_frames")
 
-if not os.path.exists(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/overlay"):
-    os.mkdir(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/overlay")
+if not os.path.exists(f"./Code/dvs_metrics/videos/overlay"):
+    os.mkdir(f"./Code/dvs_metrics/videos/overlay")
 
 events = np.zeros(len(x), dtype=[('t', '<u8'),
                                  ('x', '<u2'),
@@ -41,13 +41,13 @@ events['on']    = p
 events['label'] = np.zeros((len(x)))
 
 
-ground_truth_path = "/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/masks/"
+ground_truth_path = "./Code/dvs_metrics/videos/masks/"
 ground_truth_frames = [f for f in os.listdir(ground_truth_path)]
 
 sorted_frames = sorted(ground_truth_frames, key=lambda x: int(x.split('_')[0]))
 
-# image_paths   = gb.glob(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/event_frames/*.png") 
-mask_path     = gb.glob(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/masks/*.png")
+# image_paths   = gb.glob(f"./Code/dvs_metrics/videos/event_frames/*.png") 
+mask_path     = gb.glob(f"./Code/dvs_metrics/videos/masks/*.png")
 
 def extract_number_img(file_path):
     # Find the numeric part using regex
@@ -87,7 +87,7 @@ for tt in tqdm(range(len(frames_timestamp)-1)):
     
     warped_image = dvs_sparse_filter.accumulate(sensor_size, sub_events, (0, 0))
     rendered_image = dvs_sparse_filter.render(warped_image, colormap_name="magma", gamma=lambda image: image ** (1 / 3))
-    rendered_image.save(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/event_frames/{tt+1}_img.png")
+    rendered_image.save(f"./Code/dvs_metrics/videos/event_frames/{tt+1}_img.png")
 
     binary_image = Image.open(mask_path_sorted[tt])
     rendered_image = rendered_image.convert("RGBA")  # Ensure the rendered image has an alpha channel
@@ -97,7 +97,7 @@ for tt in tqdm(range(len(frames_timestamp)-1)):
     mask = ImageOps.invert(binary_image)  # Invert so white becomes black and black becomes white
     mask = mask.point(lambda p: 255 if p > 0 else 0)  # Convert all non-black pixels to white
     overlay_image = Image.composite(rendered_image, Image.new("RGBA", rendered_image.size, (0, 0, 0, 0)), mask)
-    overlay_image.save(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/overlay/{tt+1}_img.png")
+    overlay_image.save(f"./Code/dvs_metrics/videos/overlay/{tt+1}_img.png")
     
     labels = np.zeros(len(sub_events), dtype=int)
     for j, ev in enumerate(sub_events):
@@ -122,10 +122,10 @@ for tt in tqdm(range(len(frames_timestamp)-1)):
 
     events['label'][ii] = labels
 
-# savemat('/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/labelled_events.mat', {'events': events})
-# savemat('/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/labelled_events.mat',{'events': events},do_compression=True)
+# savemat('./Code/dvs_metrics/videos/labelled_events.mat', {'events': events})
+# savemat('./Code/dvs_metrics/videos/labelled_events.mat',{'events': events},do_compression=True)
 
-text_file_path = '/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/labelled_events.txt'
+text_file_path = './Code/dvs_metrics/videos/labelled_events.txt'
 np.savetxt(text_file_path, events, fmt='%d %d %d %d %d', header='t x y on label', comments='')
 print("File saved...")
 
@@ -136,4 +136,4 @@ print("File saved...")
 #                                                                                events['label'].astype(np.int32), 
 #                                                                                (vx_star_velocity.T, vy_star_velocity.T))
 # warped_image_segmentation_coloured = dvs_sparse_filter.rgb_render_white(cumulative_map_coloured, seg_label_zero)
-# warped_image_segmentation_coloured.save(f"/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/labelled_dot_white.png")
+# warped_image_segmentation_coloured.save(f"./Code/dvs_metrics/videos/labelled_dot_white.png")

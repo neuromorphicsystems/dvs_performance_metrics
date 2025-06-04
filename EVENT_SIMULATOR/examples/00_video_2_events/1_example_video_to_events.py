@@ -7,7 +7,7 @@
 """
 import cv2
 import sys
-sys.path.append("/home/samiarja/Desktop/PhD/Code/dvs_metrics/src")
+sys.path.append("./Code/dvs_metrics/src")
 from event_buffer import EventBuffer
 # from dvs_sensor_cpp import DvsSensor
 from dvs_sensor import DvsSensor
@@ -24,7 +24,7 @@ if not os.path.exists("./outputs"):
     os.mkdir("./outputs")
 
 
-filename = "/home/samiarja/Desktop/PhD/Code/dvs_metrics/videos/input_frames_spot_lines_kernel_radius_50.avi"
+filename = "./Code/dvs_metrics/videos/input_frames_spot_lines_kernel_radius_50.avi"
 th_pos = 0.3        # ON threshold = 50% (ln(1.5) = 0.4)
 th_neg = 0.4        # OFF threshold = 50%
 th_noise = 0.01     # standard deviation of threshold noise
@@ -48,7 +48,7 @@ dvs.initCamera(int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_
                    lat=lat, jit = jit, ref = ref, tau = tau, th_pos = th_pos, th_neg = th_neg, th_noise = th_noise,
                    bgnp=bgnp, bgnn=bgnn)
 # To use the measured noise distributions, uncomment the following line
-dvs.init_bgn_hist("/home/samiarja/Desktop/PhD/Code/dvs_metrics/data/noise_pos_161lux.npy", "/home/samiarja/Desktop/PhD/Code/dvs_metrics/data/noise_neg_161lux.npy")
+dvs.init_bgn_hist("./Code/dvs_metrics/data/noise_pos_161lux.npy", "./Code/dvs_metrics/data/noise_neg_161lux.npy")
 
 # Skip the first 50 frames of the video to remove video artifacts
 for i in range(1):

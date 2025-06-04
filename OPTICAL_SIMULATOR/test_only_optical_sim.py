@@ -37,7 +37,7 @@ blankFrames = 1 # Number of blank frames
 bgnp = 0.3 # ON event noise rate in events / pixel / s
 bgnn = 0.3 # OFF event noise rate in events / pixel / s
 
-# output_path = "/media/samiarja/VERBATIM HD/performance_metric/"
+# output_path = "./performance_metric/"
 output_path = "OUTPUT"
 
 
@@ -76,7 +76,7 @@ def run_simulation():
         # Initialize simulation data function
         Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams = initialize_simulation_params(InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         t = Dynamics['t']             # Start time (from initialized dynamics)
-        t_end = InitParams['t_end']   # End time (from the INI file)    
+        t_end = InitParams['t_end']   # End time (from the INI file)
 
         initial_frame, Dynamics, initial_target_frame = frame_sim_functions(Dynamics, InitParams, SceneParams, OpticParams, TargetParams, BgParams, SensorBiases, SensorParams)
         frame_size = [SensorParams['height'], SensorParams['width']]
